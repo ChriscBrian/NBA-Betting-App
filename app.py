@@ -7,6 +7,7 @@ import streamlit as st
 import matplotlib.pyplot as plt
 from datetime import datetime
 import os
+import io
 
 # Replace 'YOUR_API_KEY' with your actual Odds API key
 API_KEY = "3d4eabb1db321b1add71a25189a77697"
@@ -184,10 +185,18 @@ for ev, teams, label, odds, model_pct, implied_pct, home_logo, away_logo in sort
 if not new_data.empty:
     st.markdown("### 📊 Full Bet Insights")
     st.dataframe(new_data, use_container_width=True)
-    st.download_button("Download Picks as CSV", data=new_data.to_csv(index=False), file_name=f"nba_bets_{today}.csv", mime="text/csv")
+
+    csv_buffer = io.StringIO()
+    new_data.to_csv(csv_buffer, index=False)
+    st.download_button(
+        label="📥 Download Picks as CSV",
+        data=csv_buffer.getvalue(),
+        file_name=f"nba_bets_{today}.csv",
+        mime="text/csv"
+    )
 
     st.markdown("### 📈 EV Value Distribution")
-    fig, ax = plt.subplots()
+    fig, ax = plt.subplots(figsize=(8, 4))
     new_data["EV%"].hist(bins=20, ax=ax, color="#1E88E5")
     ax.set_title("Distribution of Expected Value (EV%)")
     ax.set_xlabel("EV%")
@@ -198,7 +207,7 @@ if not new_data.empty:
 if not full_history_df.empty:
     trend = full_history_df.groupby("Date")["EV%"].mean().reset_index()
     st.markdown("### 📆 EV Trend Over Time")
-    fig2, ax2 = plt.subplots()
+    fig2, ax2 = plt.subplots(figsize=(8, 4))
     ax2.plot(trend["Date"], trend["EV%"], marker="o", color="#EF6C00")
     ax2.set_title("Average Expected Value by Day")
     ax2.set_ylabel("Average EV%")
