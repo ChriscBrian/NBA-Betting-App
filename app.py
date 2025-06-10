@@ -216,7 +216,7 @@ if not full_history_df.empty:
     st.pyplot(fig2)
 
 # Hit Rate Calculation
-if not full_history_df.empty():
+if not full_history_df.empty:
     st.markdown("### ✅ Model Performance")
     resolved = full_history_df[full_history_df["Result"].isin(["Win", "Loss"])]
     if not resolved.empty:
