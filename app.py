@@ -28,7 +28,15 @@ def fetch_odds():
         st.error(f"Failed to fetch odds: {e}")
         return []
 
-# 2. MODEL LAYER - Example EV Function
+# 2. MODEL LAYER - Enhanced Model Probability Estimate
+
+def estimate_model_probability(odds):
+    """Estimate win probability using a log-odds based transform."""
+    try:
+        return round(1 / (1 + 10 ** (-odds / 400)), 4)
+    except Exception:
+        return 0.50
+
 def calc_ev(prob_model, odds):
     implied_prob = 100 / (100 + odds) if odds > 0 else abs(odds) / (100 + abs(odds))
     ev = (prob_model * (odds if odds > 0 else 100)) - ((1 - prob_model) * 100)
@@ -74,7 +82,10 @@ history_path = "daily_history.csv"
 full_history_df = pd.read_csv(history_path) if os.path.exists(history_path) else pd.DataFrame()
 
 # Team Logos
-TEAM_LOGOS = {"Indiana Pacers": "https://loodibee.com/wp-content/uploads/nba-indiana-pacers-logo.png", "Oklahoma City Thunder": "https://loodibee.com/wp-content/uploads/nba-oklahoma-city-thunder-logo.png"}  # Truncated for brevity
+TEAM_LOGOS = {
+    "Indiana Pacers": "https://loodibee.com/wp-content/uploads/nba-indiana-pacers-logo.png",
+    "Oklahoma City Thunder": "https://loodibee.com/wp-content/uploads/nba-oklahoma-city-thunder-logo.png"
+}  # Truncated for brevity
 
 # Track top 3 EV and full bet history
 top_bets = []
@@ -97,7 +108,7 @@ for game in odds_data:
                 for outcome in market.get("outcomes", []):
                     label = outcome.get("name")
                     odds = outcome.get("price")
-                    model_prob = 0.60
+                    model_prob = estimate_model_probability(odds)
                     ev, model_pct, implied_pct = calc_ev(model_prob, odds)
                     if ev >= ev_threshold:
                         row = {
@@ -165,9 +176,10 @@ if not full_history_df.empty:
     st.pyplot(fig2)
 
 # Hit Rate Calculation
-if not full_history_df.empty:
+if not full_history_df.empty():
     st.markdown("### ✅ Model Performance")
     resolved = full_history_df[full_history_df["Result"].isin(["Win", "Loss"])]
     if not resolved.empty:
         win_rate = (resolved["Result"] == "Win").mean()
         st.metric("Model Hit Rate", f"{win_rate*100:.1f}% ({(resolved['Result']=='Win').sum()}/{len(resolved)})")
+
