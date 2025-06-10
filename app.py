@@ -28,10 +28,20 @@ def fetch_odds():
         st.error(f"Failed to fetch odds: {e}")
         return []
 
+@st.cache_data(show_spinner=False)
+def fetch_scores():
+    url = "https://api.the-odds-api.com/v4/sports/basketball_nba/scores/"
+    params = {"apiKey": API_KEY}
+    try:
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException:
+        return []
+
 # 2. MODEL LAYER - Enhanced Model Probability Estimate
 
 def estimate_model_probability(odds):
-    """Estimate win probability using a log-odds based transform."""
     try:
         return round(1 / (1 + 10 ** (-odds / 400)), 4)
     except Exception:
@@ -66,9 +76,10 @@ st.markdown("""
 
 st.markdown("<div class='main-title'>NBA Betting Insights</div>", unsafe_allow_html=True)
 
-# Pull real odds
+# Pull real odds and results
 today = datetime.today().strftime("%Y-%m-%d")
 odds_data = fetch_odds()
+scores_data = fetch_scores()
 st.subheader(f"Top Model-Picked Bets Today - {today}")
 
 # Filters
@@ -86,6 +97,15 @@ TEAM_LOGOS = {
     "Indiana Pacers": "https://loodibee.com/wp-content/uploads/nba-indiana-pacers-logo.png",
     "Oklahoma City Thunder": "https://loodibee.com/wp-content/uploads/nba-oklahoma-city-thunder-logo.png"
 }  # Truncated for brevity
+
+# Map game scores to teams
+game_results = {}
+for g in scores_data:
+    if g.get("completed") and g.get("scores"):
+        home, away = g["home_team"], g["away_team"]
+        home_score = next((s['score'] for s in g["scores"] if s["name"] == home), None)
+        away_score = next((s['score'] for s in g["scores"] if s["name"] == away), None)
+        game_results[f"{home} vs {away}"] = (home_score, away_score)
 
 # Track top 3 EV and full bet history
 top_bets = []
@@ -110,6 +130,17 @@ for game in odds_data:
                     odds = outcome.get("price")
                     model_prob = estimate_model_probability(odds)
                     ev, model_pct, implied_pct = calc_ev(model_prob, odds)
+                    result = "Pending"
+
+                    if teams in game_results:
+                        home_score, away_score = game_results[teams]
+                        if label == home and home_score > away_score:
+                            result = "Win"
+                        elif label == away and away_score > home_score:
+                            result = "Win"
+                        else:
+                            result = "Loss"
+
                     if ev >= ev_threshold:
                         row = {
                             "Date": today,
@@ -119,7 +150,7 @@ for game in odds_data:
                             "Model Win%": model_pct,
                             "EV%": ev,
                             "Implied%": implied_pct,
-                            "Result": "Pending",
+                            "Result": result,
                             "Market": market["key"]
                         }
                         history_data.append(row)
@@ -182,4 +213,3 @@ if not full_history_df.empty:
     if not resolved.empty:
         win_rate = (resolved["Result"] == "Win").mean()
         st.metric("Model Hit Rate", f"{win_rate*100:.1f}% ({(resolved['Result']=='Win').sum()}/{len(resolved)})")
-
