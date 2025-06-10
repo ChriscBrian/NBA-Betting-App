@@ -175,7 +175,8 @@ for ev, teams, label, odds, model_pct, implied_pct, home_logo, away_logo in sort
         with col2:
             st.markdown(f"### {teams}")
             st.write(f"**Bet:** {label} @ {odds:+}")
-            st.write(f"**Model Win Prob:** {model_pct}% | **EV:** {ev}% | **Implied:** {implied_pct}%")
+            st.write(f"**Model Win Prob:** {model_pct}% ℹ️")
+            st.write(f"**EV:** :{'green' if ev > 0 else 'red'}[{ev}%] | **Implied:** {implied_pct}%")
         with col3:
             if home_logo:
                 st.image(home_logo, width=50)
@@ -184,7 +185,7 @@ for ev, teams, label, odds, model_pct, implied_pct, home_logo, away_logo in sort
 # Full Bet History Table
 if not new_data.empty:
     st.markdown("### 📊 Full Bet Insights")
-    st.dataframe(new_data, use_container_width=True)
+    st.dataframe(new_data.style.applymap(lambda v: 'color: green' if isinstance(v, (int, float)) and v > 0 else 'color: red', subset=["EV%"]), use_container_width=True)
 
     csv_buffer = io.StringIO()
     new_data.to_csv(csv_buffer, index=False)
