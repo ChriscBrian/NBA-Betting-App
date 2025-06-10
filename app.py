@@ -71,17 +71,25 @@ st.markdown("""
         margin-bottom: 20px;
     }
     .ticker {
-        background-color: #000;
-        color: white;
-        padding: 8px;
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        z-index: 999;
+        background-color: transparent;
+        padding: 10px 0;
         overflow: hidden;
         white-space: nowrap;
-        box-shadow: inset 0 -1px 0 #ccc;
     }
     .ticker span {
         display: inline-block;
-        padding-right: 3rem;
-        animation: scroll-left 20s linear infinite;
+        padding: 0 2rem;
+        animation: scroll-left 30s linear infinite;
+    }
+    .ticker img {
+        height: 32px;
+        margin: 0 15px;
+        vertical-align: middle;
     }
     @keyframes scroll-left {
         0% { transform: translateX(100%); }
@@ -90,20 +98,45 @@ st.markdown("""
     </style>
 """, unsafe_allow_html=True)
 
-# Add ticker banner with NBA teams
-nba_teams = [
-    "Hawks", "Celtics", "Nets", "Hornets", "Bulls", "Cavaliers", "Mavericks",
-    "Nuggets", "Pistons", "Warriors", "Rockets", "Pacers", "Clippers", "Lakers",
-    "Grizzlies", "Heat", "Bucks", "Timberwolves", "Pelicans", "Knicks", "Thunder",
-    "Magic", "76ers", "Suns", "Trail Blazers", "Kings", "Spurs", "Raptors", "Jazz", "Wizards"
+# Add ticker banner with NBA team logos
+nba_logos = [
+    "https://loodibee.com/wp-content/uploads/nba-atlanta-hawks-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-boston-celtics-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-brooklyn-nets-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-charlotte-hornets-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-chicago-bulls-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-cleveland-cavaliers-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-dallas-mavericks-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-denver-nuggets-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-detroit-pistons-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-golden-state-warriors-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-houston-rockets-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-indiana-pacers-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-la-clippers-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-la-lakers-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-memphis-grizzlies-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-miami-heat-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-milwaukee-bucks-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-minnesota-timberwolves-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-new-orleans-pelicans-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-new-york-knicks-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-oklahoma-city-thunder-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-orlando-magic-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-philadelphia-76ers-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-phoenix-suns-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-portland-trail-blazers-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-sacramento-kings-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-san-antonio-spurs-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-toronto-raptors-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-utah-jazz-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-washington-wizards-logo.png"
 ]
 st.markdown(f"""
-    <div class='ticker'><span>{' | '.join(nba_teams)}</span></div>
+    <div class='ticker'><span>{''.join([f'<img src="{logo}" />' for logo in nba_logos])}</span></div>
 """, unsafe_allow_html=True)
 
 st.image("https://media.tenor.com/VbV35bUNRpoAAAAC/basketball-bounce.gif", width=100)
 st.markdown("<div class='main-title'>NBA Betting Insights</div>", unsafe_allow_html=True)
 
 # REMAINDER OF YOUR CODE UNCHANGED...
-# (To maintain space, we have truncated below this line)
 # Make sure to keep all logic for odds display, EV calcs, charts, and bet history intact.
