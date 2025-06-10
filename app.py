@@ -197,23 +197,27 @@ if not new_data.empty:
     )
 
     with st.expander("📈 EV Value Distribution", expanded=True):
-        fig, ax = plt.subplots(figsize=(3, 1.5))
-        new_data["EV%"].hist(bins=20, ax=ax, color="#1E88E5")
-        ax.set_title("Distribution of Expected Value (EV%)")
-        ax.set_xlabel("EV%")
-        ax.set_ylabel("Number of Bets")
-        st.pyplot(fig)
+        col1, col2, col3 = st.columns([1, 6, 1])
+        with col2:
+            fig, ax = plt.subplots(figsize=(6, 2.5))
+            new_data["EV%"].hist(bins=20, ax=ax, color="#1E88E5")
+            ax.set_title("Distribution of Expected Value (EV%)")
+            ax.set_xlabel("EV%")
+            ax.set_ylabel("Number of Bets")
+            st.pyplot(fig)
 
 if isinstance(full_history_df, pd.DataFrame) and not full_history_df.empty:
     trend = full_history_df.groupby("Date")["EV%"].mean().reset_index()
     with st.expander("📆 EV Trend Over Time", expanded=True):
-        fig2, ax2 = plt.subplots(figsize=(3, 1.5))
-        ax2.plot(trend["Date"], trend["EV%"], marker="o", color="#EF6C00")
-        ax2.set_title("Average Expected Value by Day")
-        ax2.set_ylabel("Average EV%")
-        ax2.set_xlabel("Date")
-        ax2.tick_params(axis="x", rotation=45)
-        st.pyplot(fig2)
+        col1, col2, col3 = st.columns([1, 6, 1])
+        with col2:
+            fig2, ax2 = plt.subplots(figsize=(6, 2.5))
+            ax2.plot(trend["Date"], trend["EV%"], marker="o", color="#EF6C00")
+            ax2.set_title("Average Expected Value by Day")
+            ax2.set_ylabel("Average EV%")
+            ax2.set_xlabel("Date")
+            ax2.tick_params(axis="x", rotation=45)
+            st.pyplot(fig2)
 
 # Hit Rate Calculation
 if isinstance(full_history_df, pd.DataFrame) and not full_history_df.empty:
