@@ -191,35 +191,33 @@ if not new_data.empty:
     st.download_button(
         label="📥 Download Picks as CSV",
         data=csv_buffer.getvalue(),
-        file_name=f"nba_bets_{today}.csv",
+        file_name=f"nba_bets_{today.replace('-', '')}.csv",
         mime="text/csv"
     )
 
-    st.markdown("### 📈 EV Value Distribution")
-    fig, ax = plt.subplots(figsize=(4.5, 2))
-    new_data["EV%"].hist(bins=20, ax=ax, color="#1E88E5")
-    ax.set_title("Distribution of Expected Value (EV%)")
-    ax.set_xlabel("EV%")
-    ax.set_ylabel("Number of Bets")
-    st.pyplot(fig)
+    with st.expander("📈 EV Value Distribution", expanded=True):
+        fig, ax = plt.subplots(figsize=(3, 1.5))
+        new_data["EV%"].hist(bins=20, ax=ax, color="#1E88E5")
+        ax.set_title("Distribution of Expected Value (EV%)")
+        ax.set_xlabel("EV%")
+        ax.set_ylabel("Number of Bets")
+        st.pyplot(fig)
 
-# Trend of EV Average Over Time
-if not full_history_df.empty:
+if isinstance(full_history_df, pd.DataFrame) and not full_history_df.empty:
     trend = full_history_df.groupby("Date")["EV%"].mean().reset_index()
-    st.markdown("### 📆 EV Trend Over Time")
-    fig2, ax2 = plt.subplots(figsize=(4.5, 2))
-    ax2.plot(trend["Date"], trend["EV%"], marker="o", color="#EF6C00")
-    ax2.set_title("Average Expected Value by Day")
-    ax2.set_ylabel("Average EV%")
-    ax2.set_xlabel("Date")
-    ax2.tick_params(axis="x", rotation=45)
-    st.pyplot(fig2)
+    with st.expander("📆 EV Trend Over Time", expanded=True):
+        fig2, ax2 = plt.subplots(figsize=(3, 1.5))
+        ax2.plot(trend["Date"], trend["EV%"], marker="o", color="#EF6C00")
+        ax2.set_title("Average Expected Value by Day")
+        ax2.set_ylabel("Average EV%")
+        ax2.set_xlabel("Date")
+        ax2.tick_params(axis="x", rotation=45)
+        st.pyplot(fig2)
 
 # Hit Rate Calculation
-if not full_history_df.empty:
+if isinstance(full_history_df, pd.DataFrame) and not full_history_df.empty:
     st.markdown("### ✅ Model Performance")
     resolved = full_history_df[full_history_df["Result"].isin(["Win", "Loss"])]
     if not resolved.empty:
         win_rate = (resolved["Result"] == "Win").mean()
         st.metric("Model Hit Rate", f"{win_rate*100:.1f}% ({(resolved['Result']=='Win').sum()}/{len(resolved)})")
-
