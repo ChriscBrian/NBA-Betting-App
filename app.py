@@ -196,7 +196,7 @@ if not new_data.empty:
     )
 
     st.markdown("### 📈 EV Value Distribution")
-    fig, ax = plt.subplots(figsize=(8, 4))
+    fig, ax = plt.subplots(figsize=(6, 2.5))
     new_data["EV%"].hist(bins=20, ax=ax, color="#1E88E5")
     ax.set_title("Distribution of Expected Value (EV%)")
     ax.set_xlabel("EV%")
@@ -207,7 +207,7 @@ if not new_data.empty:
 if not full_history_df.empty:
     trend = full_history_df.groupby("Date")["EV%"].mean().reset_index()
     st.markdown("### 📆 EV Trend Over Time")
-    fig2, ax2 = plt.subplots(figsize=(8, 4))
+    fig2, ax2 = plt.subplots(figsize=(6, 2.5))
     ax2.plot(trend["Date"], trend["EV%"], marker="o", color="#EF6C00")
     ax2.set_title("Average Expected Value by Day")
     ax2.set_ylabel("Average EV%")
@@ -216,9 +216,10 @@ if not full_history_df.empty:
     st.pyplot(fig2)
 
 # Hit Rate Calculation
-if not full_history_df.empty:
+if not full_history_df.empty():
     st.markdown("### ✅ Model Performance")
     resolved = full_history_df[full_history_df["Result"].isin(["Win", "Loss"])]
     if not resolved.empty:
         win_rate = (resolved["Result"] == "Win").mean()
         st.metric("Model Hit Rate", f"{win_rate*100:.1f}% ({(resolved['Result']=='Win').sum()}/{len(resolved)})")
+
