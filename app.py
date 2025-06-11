@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 import os
 
-API_KEY = "3d4eabb1db321b1add71a25189a77697"
+API_KEY = "3d4eabb1db321b1add71a25189a77697"  # Replace with your actual key
 
 @st.cache_data(show_spinner=False)
 def fetch_odds():
@@ -27,7 +27,7 @@ def fetch_odds():
         st.error(f"Failed to fetch odds: {e}")
         return []
 
-# MODEL LAYER
+# MODEL FUNCTIONS
 def estimate_model_probability(odds):
     try:
         return round(1 / (1 + 10 ** (-odds / 400)), 4)
@@ -39,10 +39,10 @@ def calc_ev(prob_model, odds):
     ev = (prob_model * (odds if odds > 0 else 100)) - ((1 - prob_model) * 100)
     return round(ev, 2), round(prob_model * 100, 1), round(implied_prob * 100, 1)
 
-# FRONTEND SETUP
+# STREAMLIT SETUP
 st.set_page_config(page_title="NBA Betting Insights", layout="wide")
 
-# STYLING
+# STYLING + TICKER
 st.markdown("""
 <style>
 .main-title {
@@ -51,13 +51,6 @@ st.markdown("""
     color: #1E88E5;
     padding-top: 80px;
     padding-bottom: 10px;
-}
-.bet-card {
-    background-color: #f9f9f9;
-    padding: 15px;
-    border-radius: 10px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    margin-bottom: 20px;
 }
 .ticker {
     position: fixed;
@@ -84,18 +77,9 @@ st.markdown("""
     0% { transform: translateX(100%); }
     100% { transform: translateX(-100%); }
 }
-.chart-wrapper {
-    display: flex;
-    justify-content: center;
-    margin: 20px 0;
-}
-.chart-wrapper > div {
-    width: 50%;
-}
 </style>
 """, unsafe_allow_html=True)
 
-# TEAM LOGOS FOR TICKER
 nba_logos = [
     "https://loodibee.com/wp-content/uploads/nba-atlanta-hawks-logo.png",
     "https://loodibee.com/wp-content/uploads/nba-boston-celtics-logo.png",
@@ -129,87 +113,97 @@ nba_logos = [
     "https://loodibee.com/wp-content/uploads/nba-washington-wizards-logo.png"
 ]
 
-# TICKER
 st.markdown(f"""
 <div class='ticker'><span>{''.join([f'<img src="{logo}" />' for logo in nba_logos])}</span></div>
 """, unsafe_allow_html=True)
 
+# HEADER
 st.markdown("<div class='main-title'>NBA Betting Insights</div>", unsafe_allow_html=True)
+
+# LOAD ODDS
 odds_data = fetch_odds()
+if not odds_data:
+    st.warning("No betting data available.")
+    st.stop()
 
-# BET DISPLAY
-if odds_data:
-    bet_list = []
-    for game in odds_data:
-        home = game['home_team']
-        away = [team for team in game['teams'] if team != home][0]
-        for bookmaker in game.get("bookmakers", []):
-            for market in bookmaker.get("markets", []):
-                for outcome in market.get("outcomes", []):
-                    team = outcome["name"]
-                    odds = outcome.get("price", 0)
-                    prob = estimate_model_probability(odds)
-                    ev, prob_pct, implied = calc_ev(prob, odds)
-                    bet_list.append({
-                        "Matchup": f"{away} @ {home}",
-                        "Team": team,
-                        "Market": market["key"],
-                        "Odds": odds,
-                        "Model Prob": prob_pct,
-                        "EV%": ev,
-                        "Implied": implied
-                    })
+# PARSE DATA
+bet_list = []
+for game in odds_data:
+    home = game.get('home_team')
+    teams = game.get('teams', [])
+    if not home or not teams or home not in teams:
+        continue
+    away = [team for team in teams if team != home]
+    if not away:
+        continue
+    away = away[0]
 
-    df = pd.DataFrame(bet_list)
+    for bookmaker in game.get("bookmakers", []):
+        for market in bookmaker.get("markets", []):
+            for outcome in market.get("outcomes", []):
+                team = outcome["name"]
+                odds = outcome.get("price", 0)
+                prob = estimate_model_probability(odds)
+                ev, prob_pct, implied = calc_ev(prob, odds)
+                bet_list.append({
+                    "Matchup": f"{away} @ {home}",
+                    "Team": team,
+                    "Market": market["key"],
+                    "Odds": odds,
+                    "Model Prob": prob_pct,
+                    "EV%": ev,
+                    "Implied": implied
+                })
 
-    st.markdown("## 📊 Top Model-Picked Bets Today")
-    min_ev = st.slider("Minimum Expected Value (%)", min_value=-100, max_value=100, value=0)
-    filtered_df = df[df["EV%"] >= min_ev].copy()
+df = pd.DataFrame(bet_list)
 
-    # EV color highlighting
-    def color_ev(val):
-        color = "green" if val > 0 else "red" if val < 0 else "black"
-        return f"color: {color}"
+# FILTERS + EV TOOLTIP
+st.markdown("## 📊 Top Model-Picked Bets Today")
+min_ev = st.slider("Minimum Expected Value (%)", -100, 100, 0)
 
-    # Add tooltips
-    st.markdown("""
-    <style>
-    .tooltip {
-      display: inline-block;
-      position: relative;
-      cursor: help;
-    }
-    .tooltip .tooltiptext {
-      visibility: hidden;
-      width: 200px;
-      background-color: #555;
-      color: #fff;
-      text-align: center;
-      border-radius: 6px;
-      padding: 5px;
-      position: absolute;
-      z-index: 1;
-      bottom: 125%;
-      left: 50%;
-      margin-left: -100px;
-      opacity: 0;
-      transition: opacity 0.3s;
-    }
-    .tooltip:hover .tooltiptext {
-      visibility: visible;
-      opacity: 1;
-    }
-    </style>
-    <p>
-      <span class="tooltip">EV%<span class="tooltiptext">Expected Value based on model vs implied odds</span></span>
-      |
-      <span class="tooltip">Model Prob<span class="tooltiptext">Probability based on proprietary ELO-style rating model</span></span>
-    </p>
-    """, unsafe_allow_html=True)
+st.markdown("""
+<style>
+.tooltip {
+  display: inline-block;
+  position: relative;
+  cursor: help;
+}
+.tooltip .tooltiptext {
+  visibility: hidden;
+  width: 200px;
+  background-color: #555;
+  color: #fff;
+  text-align: center;
+  border-radius: 6px;
+  padding: 5px;
+  position: absolute;
+  z-index: 1;
+  bottom: 125%;
+  left: 50%;
+  margin-left: -100px;
+  opacity: 0;
+  transition: opacity 0.3s;
+}
+.tooltip:hover .tooltiptext {
+  visibility: visible;
+  opacity: 1;
+}
+</style>
+<p>
+  <span class="tooltip">EV%<span class="tooltiptext">Expected Value based on model vs implied odds</span></span>
+  |
+  <span class="tooltip">Model Prob<span class="tooltiptext">Probability from rating-based model</span></span>
+</p>
+""", unsafe_allow_html=True)
 
-    st.dataframe(
-        filtered_df.style.applymap(color_ev, subset=["EV%"]),
-        use_container_width=True
-    )
-else:
-    st.warning("No betting data available at the moment.")
+# DISPLAY
+filtered_df = df[df["EV%"] >= min_ev].copy()
+
+def color_ev(val):
+    color = "green" if val > 0 else "red" if val < 0 else "black"
+    return f"color: {color}"
+
+st.dataframe(
+    filtered_df.style.applymap(color_ev, subset=["EV%"]),
+    use_container_width=True
+)
