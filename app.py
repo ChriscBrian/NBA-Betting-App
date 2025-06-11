@@ -1,5 +1,4 @@
-# NBA Betting Insights MVP - Streamlit App with Team Banner
-
+# 1. DATA INGESTION
 import requests
 import pandas as pd
 import streamlit as st
@@ -8,7 +7,8 @@ from datetime import datetime
 import os
 import io
 
-API_KEY = "3d4eabb1db321b1add71a25189a77697"  # Replace with your actual API key
+# Replace 'YOUR_API_KEY' with your actual Odds API key
+API_KEY = "3d4eabb1db321b1add71a25189a77697"  # <-- REPLACE with your key
 
 @st.cache_data(show_spinner=False)
 def fetch_odds():
@@ -27,6 +27,7 @@ def fetch_odds():
         st.error(f"Failed to fetch odds: {e}")
         return []
 
+# 2. MODEL LAYER - Enhanced Model Probability Estimate
 def estimate_model_probability(odds):
     try:
         return round(1 / (1 + 10 ** (-odds / 400)), 4)
@@ -38,8 +39,10 @@ def calc_ev(prob_model, odds):
     ev = (prob_model * (odds if odds > 0 else 100)) - ((1 - prob_model) * 100)
     return round(ev, 2), round(prob_model * 100, 1), round(implied_prob * 100, 1)
 
+# 3. FRONTEND (Streamlit MVP)
 st.set_page_config(page_title="NBA Betting Insights", layout="wide")
-# --- NBA Team Logo Banner with Light Blue Background ---
+
+# Banner styling + team logos
 st.markdown("""
     <style>
     .ticker {
@@ -47,8 +50,8 @@ st.markdown("""
         top: 0;
         left: 0;
         width: 100%;
-        z-index: 1000;
-        background-color: rgba(173, 216, 230, 0.6); /* Light blue with transparency */
+        z-index: 999;
+        background-color: rgba(173, 216, 230, 0.6);
         overflow: hidden;
         white-space: nowrap;
         padding: 5px 0;
@@ -80,59 +83,18 @@ logos = [
 ]
 logo_imgs = ''.join([f'<img src="https://loodibee.com/wp-content/uploads/nba-{team}-logo.png"/>' for team in logos])
 st.markdown(f"<div class='ticker'><span>{logo_imgs}</span></div>", unsafe_allow_html=True)
+
+# Rest of the UI
 st.image("https://media.tenor.com/VbV35bUNRpoAAAAC/basketball-bounce.gif", width=100)
 
-# --- Transparent Floating NBA Logo Banner ---
-st.markdown("""
-    <style>
-    .ticker {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        z-index: 1000;
-        background-color: transparent;
-        overflow: hidden;
-        white-space: nowrap;
-        padding: 5px 0;
-    }
-    .ticker span {
-        display: inline-block;
-        padding-left: 100%;
-        animation: scroll-left 60s linear infinite;
-    }
-    .ticker img {
-        height: 30px;
-        margin: 0 12px;
-        vertical-align: middle;
-    }
-    @keyframes scroll-left {
-        0% { transform: translateX(0); }
-        100% { transform: translateX(-100%); }
-    }
-    </style>
-""", unsafe_allow_html=True)
-
-logos = [
-    "atlanta-hawks", "boston-celtics", "brooklyn-nets", "charlotte-hornets", "chicago-bulls",
-    "cleveland-cavaliers", "dallas-mavericks", "denver-nuggets", "detroit-pistons", "golden-state-warriors",
-    "houston-rockets", "indiana-pacers", "la-clippers", "la-lakers", "memphis-grizzlies", "miami-heat",
-    "milwaukee-bucks", "minnesota-timberwolves", "new-orleans-pelicans", "new-york-knicks",
-    "oklahoma-city-thunder", "orlando-magic", "philadelphia-76ers", "phoenix-suns", "portland-trail-blazers",
-    "sacramento-kings", "san-antonio-spurs", "toronto-raptors", "utah-jazz", "washington-wizards"
-]
-logo_imgs = ''.join([f'<img src="https://loodibee.com/wp-content/uploads/nba-{team}-logo.png"/>' for team in logos])
-st.markdown(f"<div class='ticker'><span>{logo_imgs}</span></div>", unsafe_allow_html=True)
-
-# --- App Styling ---
 st.markdown("""
     <style>
     .main-title {
         font-size: 3em;
         font-weight: bold;
         color: #1E88E5;
-        padding-top: 60px;
         padding-bottom: 10px;
+        margin-top: 60px;
     }
     .bet-card {
         background-color: #f9f9f9;
@@ -146,25 +108,28 @@ st.markdown("""
 
 st.markdown("<div class='main-title'>NBA Betting Insights</div>", unsafe_allow_html=True)
 
-# Odds + Setup
+# Pull real odds
 today = datetime.today().strftime("%Y-%m-%d")
 odds_data = fetch_odds()
 st.subheader(f"🏀 Top Model-Picked Bets Today - {today}")
 
+# Filters
 ev_threshold = st.slider("Minimum Expected Value (%)", min_value=-100, max_value=100, value=0, step=1)
 all_teams = sorted(list({game['home_team'] for game in odds_data}.union({game['away_team'] for game in odds_data})))
 team_filter = st.selectbox("Filter by Team (Optional)", options=["All Teams"] + all_teams)
 market_filter = st.radio("Filter by Market Type", options=["All", "h2h", "spreads", "totals"], horizontal=True)
 
-# Load bet history
+# Load daily history
 history_path = "daily_history.csv"
 full_history_df = pd.read_csv(history_path) if os.path.exists(history_path) else pd.DataFrame()
 
+# Team Logos (for top 3 cards)
 TEAM_LOGOS = {
     "Indiana Pacers": "https://loodibee.com/wp-content/uploads/nba-indiana-pacers-logo.png",
     "Oklahoma City Thunder": "https://loodibee.com/wp-content/uploads/nba-oklahoma-city-thunder-logo.png"
 }
 
+# Track top bets
 top_bets = []
 history_data = []
 
@@ -181,27 +146,28 @@ for game in odds_data:
         for market in bookmaker.get("markets", []):
             if market_filter != "All" and market["key"] != market_filter:
                 continue
-            for outcome in market.get("outcomes", []):
-                label = outcome.get("name")
-                odds = outcome.get("price")
-                model_prob = estimate_model_probability(odds)
-                ev, model_pct, implied_pct = calc_ev(model_prob, odds)
-                if ev >= ev_threshold:
-                    row = {
-                        "Date": today,
-                        "Matchup": matchup,
-                        "Bet": label,
-                        "Odds": odds,
-                        "Model Win%": model_pct,
-                        "EV%": ev,
-                        "Implied%": implied_pct,
-                        "Result": "Pending",
-                        "Market": market["key"]
-                    }
-                    history_data.append(row)
-                    top_bets.append((ev, matchup, label, odds, model_pct, implied_pct, home_logo, away_logo))
+            if market["key"] in ["spreads", "totals", "h2h"]:
+                for outcome in market.get("outcomes", []):
+                    label = outcome.get("name")
+                    odds = outcome.get("price")
+                    model_prob = estimate_model_probability(odds)
+                    ev, model_pct, implied_pct = calc_ev(model_prob, odds)
+                    if ev >= ev_threshold:
+                        row = {
+                            "Date": today,
+                            "Matchup": matchup,
+                            "Bet": label,
+                            "Odds": odds,
+                            "Model Win%": model_pct,
+                            "EV%": ev,
+                            "Implied%": implied_pct,
+                            "Result": "Pending",
+                            "Market": market["key"]
+                        }
+                        history_data.append(row)
+                        top_bets.append((ev, matchup, label, odds, model_pct, implied_pct, home_logo, away_logo))
 
-# Save
+# Save history
 new_data = pd.DataFrame(history_data)
 if not new_data.empty:
     full_history_df = pd.concat([full_history_df, new_data], ignore_index=True)
@@ -225,7 +191,7 @@ for ev, matchup, label, odds, model_pct, implied_pct, home_logo, away_logo in so
                 st.image(home_logo, width=50)
         st.markdown("</div>", unsafe_allow_html=True)
 
-# Full Bet Table
+# Full Bet History + Download
 if not new_data.empty:
     st.markdown("### 📊 Full Bet Insights")
     st.dataframe(new_data, use_container_width=True)
@@ -247,6 +213,7 @@ if not new_data.empty:
     ax.set_ylabel("Number of Bets")
     st.pyplot(fig)
 
+# EV Trend
 if not full_history_df.empty:
     trend = full_history_df.groupby("Date")["EV%"].mean().reset_index()
     st.markdown("### 📆 EV Trend Over Time")
@@ -258,8 +225,11 @@ if not full_history_df.empty:
     ax2.tick_params(axis="x", rotation=45)
     st.pyplot(fig2)
 
+# Performance
+if not full_history_df.empty:
     st.markdown("### ✅ Model Performance")
     resolved = full_history_df[full_history_df["Result"].isin(["Win", "Loss"])]
     if not resolved.empty:
         win_rate = (resolved["Result"] == "Win").mean()
         st.metric("Model Hit Rate", f"{win_rate*100:.1f}% ({(resolved['Result']=='Win').sum()}/{len(resolved)})")
+
