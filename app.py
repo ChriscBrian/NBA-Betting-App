@@ -1,4 +1,4 @@
-# NBA Betting Insights MVP - Full Streamlit App with Ticker, Charts, Table, Filters, and Tooltips
+# NBA Betting Insights MVP - Full Streamlit App
 
 # 1. DATA INGESTION
 import requests
@@ -52,13 +52,6 @@ st.markdown("""
     padding-top: 80px;
     padding-bottom: 10px;
 }
-.bet-card {
-    background-color: #f9f9f9;
-    padding: 15px;
-    border-radius: 10px;
-    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
-    margin-bottom: 20px;
-}
 .ticker {
     position: fixed;
     top: 0;
@@ -83,14 +76,6 @@ st.markdown("""
 @keyframes scroll-left {
     0% { transform: translateX(100%); }
     100% { transform: translateX(-100%); }
-}
-.chart-wrapper {
-    display: flex;
-    justify-content: center;
-    margin: 20px 0;
-}
-.chart-wrapper > div {
-    width: 50%;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -134,6 +119,7 @@ st.markdown(f"""
 <div class='ticker'><span>{''.join([f'<img src="{logo}" />' for logo in nba_logos])}</span></div>
 """, unsafe_allow_html=True)
 
+# MAIN TITLE
 st.markdown("<div class='main-title'>NBA Betting Insights</div>", unsafe_allow_html=True)
 odds_data = fetch_odds()
 
@@ -149,14 +135,14 @@ if odds_data:
         for bookmaker in game.get("bookmakers", []):
             for market in bookmaker.get("markets", []):
                 for outcome in market.get("outcomes", []):
-                    team = outcome["name"]
+                    team = outcome.get("name", "")
                     odds = outcome.get("price", 0)
                     prob = estimate_model_probability(odds)
                     ev, prob_pct, implied = calc_ev(prob, odds)
                     bet_list.append({
                         "Matchup": f"{away} @ {home}",
                         "Team": team,
-                        "Market": market["key"],
+                        "Market": market.get("key", ""),
                         "Odds": odds,
                         "Model Prob": prob_pct,
                         "EV%": ev,
@@ -167,7 +153,12 @@ if odds_data:
 
     st.markdown("## 📊 Top Model-Picked Bets Today")
     min_ev = st.slider("Minimum Expected Value (%)", min_value=-100, max_value=100, value=0)
-    filtered_df = df[df["EV%"] >= min_ev].copy()
+
+    if "EV%" in df.columns:
+        filtered_df = df[df["EV%"] >= min_ev].copy()
+    else:
+        st.warning("EV% column not found in data.")
+        filtered_df = pd.DataFrame()
 
     def color_ev(val):
         color = "green" if val > 0 else "red" if val < 0 else "black"
@@ -217,3 +208,4 @@ if odds_data:
         st.info("No valid betting data available to display.")
 else:
     st.warning("No betting data available at the moment.")
+
