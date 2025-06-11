@@ -12,7 +12,7 @@ API_KEY = "3d4eabb1db321b1add71a25189a77697"
 
 st.set_page_config(page_title="NBA Betting Insights", layout="wide")
 
-# === STYLES ===
+# === STYLES AND BANNER ===
 st.markdown("""
 <style>
 body {
@@ -31,12 +31,74 @@ body {
     margin-bottom: 15px;
     color: #003366;
 }
+.ticker {
+    width: 100%;
+    overflow: hidden;
+    background: rgba(173, 216, 230, 0.3); /* light blue tint */
+    padding: 8px 0;
+    margin-bottom: 10px;
+}
+.ticker span {
+    display: inline-block;
+    white-space: nowrap;
+    animation: scroll-left 60s linear infinite;
+}
+.ticker img {
+    height: 32px;
+    margin: 0 10px;
+    vertical-align: middle;
+}
+@keyframes scroll-left {
+    0% { transform: translateX(100%); }
+    100% { transform: translateX(-100%); }
+}
 </style>
 """, unsafe_allow_html=True)
 
+# TEAM LOGOS (all 30 teams)
+team_logos = [
+    "https://loodibee.com/wp-content/uploads/nba-atlanta-hawks-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-boston-celtics-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-brooklyn-nets-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-charlotte-hornets-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-chicago-bulls-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-cleveland-cavaliers-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-dallas-mavericks-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-denver-nuggets-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-detroit-pistons-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-golden-state-warriors-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-houston-rockets-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-indiana-pacers-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-la-clippers-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-la-lakers-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-memphis-grizzlies-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-miami-heat-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-milwaukee-bucks-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-minnesota-timberwolves-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-new-orleans-pelicans-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-new-york-knicks-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-oklahoma-city-thunder-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-orlando-magic-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-philadelphia-76ers-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-phoenix-suns-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-portland-trail-blazers-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-sacramento-kings-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-san-antonio-spurs-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-toronto-raptors-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-utah-jazz-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-washington-wizards-logo.png"
+]
+
+# Render banner
+st.markdown(f"""
+<div class="ticker"><span>{''.join([f'<img src="{logo}" />' for logo in team_logos])}</span></div>
+""", unsafe_allow_html=True)
+
+# === HEADER ===
 st.image("https://loodibee.com/wp-content/uploads/nba-logo.png", width=90)
 st.markdown("<h1 style='color:#1E88E5;'>NBA Betting Insights</h1>", unsafe_allow_html=True)
 
+# === FUNCTIONS ===
 @st.cache_data(show_spinner=False)
 def fetch_odds():
     url = "https://api.the-odds-api.com/v4/sports/basketball_nba/odds"
@@ -65,6 +127,7 @@ def calc_ev(prob_model, odds):
     ev = (prob_model * (odds if odds > 0 else 100)) - ((1 - prob_model) * 100)
     return round(ev, 2), round(prob_model * 100, 1), round(implied_prob * 100, 1)
 
+# === DATA ===
 today = datetime.today().strftime("%Y-%m-%d")
 odds_data = fetch_odds()
 
@@ -79,6 +142,7 @@ market_filter = st.radio("Filter by Market Type", options=["All", "h2h", "spread
 
 st.markdown("</div>", unsafe_allow_html=True)
 
+# === BET TABLE GENERATION ===
 TEAM_LOGOS = {
     "Indiana Pacers": "https://loodibee.com/wp-content/uploads/nba-indiana-pacers-logo.png",
     "Oklahoma City Thunder": "https://loodibee.com/wp-content/uploads/nba-oklahoma-city-thunder-logo.png"
