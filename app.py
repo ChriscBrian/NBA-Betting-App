@@ -1,4 +1,4 @@
-# NBA Betting Insights MVP with Floating NBA Team Icon Banner
+# NBA Betting Insights - Full Streamlit App with Floating Ticker and EV Filtering
 
 import requests
 import pandas as pd
@@ -8,40 +8,57 @@ from datetime import datetime
 import os
 import io
 
-API_KEY = "3d4eabb1db321b1add71a25189a77697"  # Replace with your actual Odds API key
+# ========== CONFIG ==========
+API_KEY = "3d4eabb1db321b1add71a25189a77697"  # Replace with your Odds API key
 
-@st.cache_data(show_spinner=False)
-def fetch_odds():
-    url = "https://api.the-odds-api.com/v4/sports/basketball_nba/odds"
-    params = {
-        "apiKey": API_KEY,
-        "regions": "us",
-        "markets": "spreads,totals,h2h",
-        "oddsFormat": "american"
-    }
-    try:
-        response = requests.get(url, params=params)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        st.error(f"Failed to fetch odds: {e}")
-        return []
-
-def estimate_model_probability(odds):
-    try:
-        return round(1 / (1 + 10 ** (-odds / 400)), 4)
-    except Exception:
-        return 0.50
-
-def calc_ev(prob_model, odds):
-    implied_prob = 100 / (100 + odds) if odds > 0 else abs(odds) / (100 + abs(odds))
-    ev = (prob_model * (odds if odds > 0 else 100)) - ((1 - prob_model) * 100)
-    return round(ev, 2), round(prob_model * 100, 1), round(implied_prob * 100, 1)
-
-# STREAMLIT PAGE CONFIG
 st.set_page_config(page_title="NBA Betting Insights", layout="wide")
 
-# FLOATING TICKER STYLES AND NBA LOGOS
+# ========== STYLES ==========
+st.markdown("""
+<style>
+body { margin: 0; }
+.main-title {
+    font-size: 3em;
+    font-weight: bold;
+    color: #1E88E5;
+    padding-top: 60px;
+    padding-bottom: 20px;
+}
+.bet-card {
+    background-color: #f9f9f9;
+    padding: 15px;
+    border-radius: 10px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+.ticker {
+    position: fixed;
+    top: 0;
+    width: 100%;
+    background-color: transparent;
+    padding: 10px 0;
+    overflow: hidden;
+    white-space: nowrap;
+    z-index: 9999;
+}
+.ticker span {
+    display: inline-block;
+    padding: 0 1.5rem;
+    animation: scroll-left 40s linear infinite;
+}
+.ticker img {
+    height: 32px;
+    margin: 0 8px;
+    vertical-align: middle;
+}
+@keyframes scroll-left {
+    0% { transform: translateX(100%); }
+    100% { transform: translateX(-100%); }
+}
+</style>
+""", unsafe_allow_html=True)
+
+# ========== NBA LOGOS ==========
 nba_logos = [
     "https://loodibee.com/wp-content/uploads/nba-atlanta-hawks-logo.png",
     "https://loodibee.com/wp-content/uploads/nba-boston-celtics-logo.png",
@@ -74,117 +91,94 @@ nba_logos = [
     "https://loodibee.com/wp-content/uploads/nba-utah-jazz-logo.png",
     "https://loodibee.com/wp-content/uploads/nba-washington-wizards-logo.png"
 ]
+ticker_html = ''.join([f'<img src="{logo}" />' for logo in nba_logos])
+st.markdown(f"<div class='ticker'><span>{ticker_html}</span></div>", unsafe_allow_html=True)
 
-st.markdown("""
-    <style>
-    .ticker {
-        position: fixed;
-        top: 0;
-        width: 100%;
-        background-color: rgba(255, 255, 255, 0.0);  /* Transparent */
-        z-index: 9999;
-        overflow: hidden;
-        white-space: nowrap;
-    }
-    .ticker span {
-        display: inline-block;
-        animation: scroll-left 30s linear infinite;
-    }
-    .ticker img {
-        height: 40px;
-        margin: 0 20px;
-    }
-    @keyframes scroll-left {
-        0% { transform: translateX(100%); }
-        100% { transform: translateX(-100%); }
-    }
-    </style>
-    <div class='ticker'><span>
-    """ + "".join([f"<img src='{logo}' />" for logo in nba_logos]) + "</span></div>", unsafe_allow_html=True)
+# ========== HEADER ==========
+st.markdown("<div class='main-title'>NBA Betting Insights</div>", unsafe_allow_html=True)
 
-# HEADER
-st.markdown("<h1 style='padding-top:60px; color:#1E88E5;'>NBA Betting Insights</h1>", unsafe_allow_html=True)
-st.subheader("🏀 Top Model-Picked Bets Today")
+# ========== FETCH ODDS ==========
+@st.cache_data(show_spinner=False)
+def fetch_odds():
+    url = "https://api.the-odds-api.com/v4/sports/basketball_nba/odds"
+    params = {
+        "apiKey": API_KEY,
+        "regions": "us",
+        "markets": "spreads,totals,h2h",
+        "oddsFormat": "american"
+    }
+    try:
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        return response.json()
+    except Exception as e:
+        st.error(f"Failed to fetch odds: {e}")
+        return []
 
-# FETCH DATA
-today = datetime.today().strftime("%Y-%m-%d")
+# ========== MODEL CALCS ==========
+def estimate_model_probability(odds):
+    try:
+        return round(1 / (1 + 10 ** (-odds / 400)), 4)
+    except Exception:
+        return 0.5
+
+def calc_ev(prob_model, odds):
+    implied_prob = 100 / (100 + odds) if odds > 0 else abs(odds) / (100 + abs(odds))
+    ev = (prob_model * (odds if odds > 0 else 100)) - ((1 - prob_model) * 100)
+    return round(ev, 2), round(prob_model * 100, 1), round(implied_prob * 100, 1)
+
+# ========== MAIN DISPLAY ==========
 odds_data = fetch_odds()
+today = datetime.today().strftime("%Y-%m-%d")
+st.markdown(f"## 🏀 Top Model-Picked Bets Today")
 
 ev_threshold = st.slider("Minimum Expected Value (%)", -100, 100, 0)
-history_path = "daily_history.csv"
-full_history_df = pd.read_csv(history_path) if os.path.exists(history_path) else pd.DataFrame()
 
-TEAM_LOGOS = {
-    "Indiana Pacers": "https://loodibee.com/wp-content/uploads/nba-indiana-pacers-logo.png",
-    "Oklahoma City Thunder": "https://loodibee.com/wp-content/uploads/nba-oklahoma-city-thunder-logo.png"
-}
-
-top_bets, history_data = [], []
+top_bets = []
 
 for game in odds_data:
-    home = game['home_team']
-    away = [team for team in game['teams'] if team != home][0]
-    matchup = f"{home} vs {away}"
-    home_logo = TEAM_LOGOS.get(home)
-    away_logo = TEAM_LOGOS.get(away)
+    home = game.get("home_team")
+    teams = game.get("teams")
+    if not teams or home not in teams or len(teams) != 2:
+        continue
+    away = [team for team in teams if team != home][0]
+    matchup = f"{away} @ {home}"
 
     for bookmaker in game.get("bookmakers", []):
         for market in bookmaker.get("markets", []):
-            if market["key"] in ["spreads", "totals", "h2h"]:
-                for outcome in market.get("outcomes", []):
-                    label = outcome.get("name")
-                    odds = outcome.get("price")
-                    model_prob = estimate_model_probability(odds)
-                    ev, model_pct, implied_pct = calc_ev(model_prob, odds)
-                    if ev >= ev_threshold:
-                        row = {
-                            "Date": today,
-                            "Matchup": matchup,
-                            "Bet": label,
-                            "Odds": odds,
-                            "Model Win%": model_pct,
-                            "EV%": ev,
-                            "Implied%": implied_pct,
-                            "Result": "Pending",
-                            "Market": market["key"]
-                        }
-                        history_data.append(row)
-                        top_bets.append((ev, matchup, label, odds, model_pct, implied_pct, home_logo, away_logo))
+            for outcome in market.get("outcomes", []):
+                team = outcome["name"]
+                odds = outcome.get("price", 0)
+                prob = estimate_model_probability(odds)
+                ev, prob_pct, implied = calc_ev(prob, odds)
+                if ev >= ev_threshold:
+                    top_bets.append({
+                        "Date": today,
+                        "Matchup": matchup,
+                        "Team": team,
+                        "Market": market["key"],
+                        "Odds": odds,
+                        "Model Prob": prob_pct,
+                        "EV%": ev,
+                        "Implied": implied
+                    })
 
-# SAVE HISTORY
-new_data = pd.DataFrame(history_data)
-if not new_data.empty:
-    full_history_df = pd.concat([full_history_df, new_data], ignore_index=True)
-    full_history_df.to_csv(history_path, index=False)
+df = pd.DataFrame(top_bets)
 
-# TOP 3 DISPLAY
-if top_bets:
-    st.markdown("### 🔥 Top 3 Bets")
-    for ev, matchup, label, odds, model_pct, implied_pct, home_logo, away_logo in sorted(top_bets, reverse=True)[:3]:
-        with st.container():
-            col1, col2, col3 = st.columns([1, 2, 1])
-            with col1:
-                if away_logo: st.image(away_logo, width=50)
-            with col2:
-                st.markdown(f"**{matchup}**")
-                st.write(f"**Bet:** {label} @ {odds:+}")
-                st.write(f"Model: {model_pct}% | EV: {ev}% | Implied: {implied_pct}%")
-            with col3:
-                if home_logo: st.image(home_logo, width=50)
+if not df.empty:
+    def color_ev(val):
+        color = "green" if val > 0 else "red" if val < 0 else "black"
+        return f"color: {color}"
 
-# FULL TABLE AND CHART
-if not new_data.empty:
-    st.markdown("### 📊 Full Bet Table")
-    st.dataframe(new_data, use_container_width=True)
+    st.dataframe(
+        df.style.applymap(color_ev, subset=["EV%"]),
+        use_container_width=True
+    )
 
     st.markdown("### 📈 EV Distribution")
     fig, ax = plt.subplots()
-    new_data["EV%"].hist(bins=20, ax=ax, color="#1E88E5")
+    df["EV%"].hist(bins=15, ax=ax, color="#1976D2")
+    ax.set_title("EV% Distribution")
     st.pyplot(fig)
-
-    if not full_history_df.empty:
-        st.markdown("### 📆 EV Trend")
-        trend = full_history_df.groupby("Date")["EV%"].mean().reset_index()
-        fig2, ax2 = plt.subplots()
-        ax2.plot(trend["Date"], trend["EV%"], marker="o", color="#EF6C00")
-        st.pyplot(fig2)
+else:
+    st.warning("No valid betting data available to display.")
