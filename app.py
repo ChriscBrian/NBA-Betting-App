@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 import os
 
-API_KEY = "3d4eabb1db321b1add71a25189a77697"  # 🔁 Replace with your actual key
+API_KEY = "3d4eabb1db321b1add71a25189a77697"
 
 @st.cache_data(show_spinner=False)
 def fetch_odds():
@@ -84,6 +84,14 @@ st.markdown("""
     0% { transform: translateX(100%); }
     100% { transform: translateX(-100%); }
 }
+.chart-wrapper {
+    display: flex;
+    justify-content: center;
+    margin: 20px 0;
+}
+.chart-wrapper > div {
+    width: 50%;
+}
 </style>
 """, unsafe_allow_html=True)
 
@@ -133,10 +141,8 @@ odds_data = fetch_odds()
 if odds_data:
     bet_list = []
     for game in odds_data:
-        home = game.get("home_team", "")
-        teams = game.get("teams", [])
-        away = [team for team in teams if team != home]
-        away = away[0] if away else "Unknown"
+        home = game['home_team']
+        away = [team for team in game['teams'] if team != home][0]
         for bookmaker in game.get("bookmakers", []):
             for market in bookmaker.get("markets", []):
                 for outcome in market.get("outcomes", []):
