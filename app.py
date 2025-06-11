@@ -61,6 +61,7 @@ st.markdown("""
         font-size: 3em;
         font-weight: bold;
         color: #1E88E5;
+        padding-top: 80px;
         padding-bottom: 10px;
     }
     .bet-card {
@@ -94,6 +95,14 @@ st.markdown("""
     @keyframes scroll-left {
         0% { transform: translateX(100%); }
         100% { transform: translateX(-100%); }
+    }
+    .chart-wrapper {
+        display: flex;
+        justify-content: center;
+        margin: 20px 0;
+    }
+    .chart-wrapper > div {
+        width: 60%;
     }
     </style>
 """, unsafe_allow_html=True)
@@ -135,8 +144,11 @@ st.markdown(f"""
     <div class='ticker'><span>{''.join([f'<img src="{logo}" />' for logo in nba_logos])}</span></div>
 """, unsafe_allow_html=True)
 
-st.image("https://media.tenor.com/VbV35bUNRpoAAAAC/basketball-bounce.gif", width=100)
 st.markdown("<div class='main-title'>NBA Betting Insights</div>", unsafe_allow_html=True)
 
 # REMAINDER OF YOUR CODE UNCHANGED...
-# Make sure to keep all logic for odds display, EV calcs, charts, and bet history intact.
+# Wrap charts like below where needed:
+# with st.container():
+#     st.markdown("<div class='chart-wrapper'>", unsafe_allow_html=True)
+#     st.pyplot(fig)
+#     st.markdown("</div>", unsafe_allow_html=True)
