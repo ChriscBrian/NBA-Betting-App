@@ -1,13 +1,12 @@
 # NBA Betting Insights MVP - Full Streamlit App
 
-# 1. DATA INGESTION
 import requests
 import pandas as pd
 import streamlit as st
 import matplotlib.pyplot as plt
 from datetime import datetime
-import os
 
+# 🔑 Insert your API Key here
 API_KEY = "3d4eabb1db321b1add71a25189a77697"
 
 @st.cache_data(show_spinner=False)
@@ -27,11 +26,10 @@ def fetch_odds():
         st.error(f"Failed to fetch odds: {e}")
         return []
 
-# MODEL LAYER
 def estimate_model_probability(odds):
     try:
         return round(1 / (1 + 10 ** (-odds / 400)), 4)
-    except Exception:
+    except:
         return 0.50
 
 def calc_ev(prob_model, odds):
@@ -39,10 +37,9 @@ def calc_ev(prob_model, odds):
     ev = (prob_model * (odds if odds > 0 else 100)) - ((1 - prob_model) * 100)
     return round(ev, 2), round(prob_model * 100, 1), round(implied_prob * 100, 1)
 
-# FRONTEND SETUP
 st.set_page_config(page_title="NBA Betting Insights", layout="wide")
 
-# STYLING
+# 🖼️ Styling
 st.markdown("""
 <style>
 .main-title {
@@ -80,7 +77,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# TEAM LOGOS FOR TICKER
+# NBA team logos for ticker
 nba_logos = [
     "https://loodibee.com/wp-content/uploads/nba-atlanta-hawks-logo.png",
     "https://loodibee.com/wp-content/uploads/nba-boston-celtics-logo.png",
@@ -114,57 +111,61 @@ nba_logos = [
     "https://loodibee.com/wp-content/uploads/nba-washington-wizards-logo.png"
 ]
 
-# TICKER
+# 🏀 Ticker display
 st.markdown(f"""
 <div class='ticker'><span>{''.join([f'<img src="{logo}" />' for logo in nba_logos])}</span></div>
 """, unsafe_allow_html=True)
 
-# MAIN TITLE
+# 🏆 Title
 st.markdown("<div class='main-title'>NBA Betting Insights</div>", unsafe_allow_html=True)
+
+# 🎯 Main Odds Data
 odds_data = fetch_odds()
 
-# BET DISPLAY
 if odds_data:
-    bet_list = []
+    bets = []
     for game in odds_data:
-        home = game.get('home_team')
+        home = game.get("home_team")
         teams = game.get("teams", [])
         if not teams or home not in teams or len(teams) != 2:
             continue
         away = [team for team in teams if team != home][0]
-        for bookmaker in game.get("bookmakers", []):
-            for market in bookmaker.get("markets", []):
+        for book in game.get("bookmakers", []):
+            for market in book.get("markets", []):
                 for outcome in market.get("outcomes", []):
-                    team = outcome.get("name", "")
+                    team = outcome.get("name")
                     odds = outcome.get("price", 0)
                     prob = estimate_model_probability(odds)
                     ev, prob_pct, implied = calc_ev(prob, odds)
-                    bet_list.append({
+                    bets.append({
                         "Matchup": f"{away} @ {home}",
                         "Team": team,
-                        "Market": market.get("key", ""),
+                        "Market": market["key"],
                         "Odds": odds,
                         "Model Prob": prob_pct,
                         "EV%": ev,
                         "Implied": implied
                     })
 
-   df = pd.DataFrame(bet_list)
+    df = pd.DataFrame(bets)
 
-if df.empty:
-    st.warning("No valid betting data returned from API.")
-else:
     st.markdown("## 📊 Top Model-Picked Bets Today")
-    min_ev = st.slider("Minimum Expected Value (%)", min_value=-100, max_value=100, value=0)
+    min_ev = st.slider("Minimum Expected Value (%)", -100, 100, 0)
 
-    if "EV%" not in df.columns:
+    if df.empty:
+        st.warning("No valid betting data available to display.")
+    elif "EV%" not in df.columns:
         st.warning("EV% column not found in data.")
     else:
         filtered_df = df[df["EV%"] >= min_ev].copy()
 
         def color_ev(val):
-            color = "green" if val > 0 else "red" if val < 0 else "black"
-            return f"color: {color}"
+            if val > 0:
+                return "color: green"
+            elif val < 0:
+                return "color: red"
+            else:
+                return "color: black"
 
         st.markdown("""
         <style>
@@ -195,67 +196,12 @@ else:
         }
         </style>
         <p>
-          <span class="tooltip">EV%<span class="tooltiptext">Expected Value based on model vs implied odds</span></span>
+          <span class="tooltip">EV%<span class="tooltiptext">Expected Value = Model Prob vs Implied Odds</span></span>
           |
-          <span class="tooltip">Model Prob<span class="tooltiptext">Probability based on proprietary ELO-style rating model</span></span>
+          <span class="tooltip">Model Prob<span class="tooltiptext">Calculated from ELO-style rating model</span></span>
         </p>
         """, unsafe_allow_html=True)
 
-        if not filtered_df.empty:
-            st.dataframe(
-                filtered_df.style.applymap(color_ev, subset=["EV%"]),
-                use_container_width=True
-            )
-        else:
-            st.info("No valid betting data available to display.")
-
-
-    def color_ev(val):
-        color = "green" if val > 0 else "red" if val < 0 else "black"
-        return f"color: {color}"
-
-    st.markdown("""
-    <style>
-    .tooltip {
-      display: inline-block;
-      position: relative;
-      cursor: help;
-    }
-    .tooltip .tooltiptext {
-      visibility: hidden;
-      width: 200px;
-      background-color: #555;
-      color: #fff;
-      text-align: center;
-      border-radius: 6px;
-      padding: 5px;
-      position: absolute;
-      z-index: 1;
-      bottom: 125%;
-      left: 50%;
-      margin-left: -100px;
-      opacity: 0;
-      transition: opacity 0.3s;
-    }
-    .tooltip:hover .tooltiptext {
-      visibility: visible;
-      opacity: 1;
-    }
-    </style>
-    <p>
-      <span class="tooltip">EV%<span class="tooltiptext">Expected Value based on model vs implied odds</span></span>
-      |
-      <span class="tooltip">Model Prob<span class="tooltiptext">Probability based on proprietary ELO-style rating model</span></span>
-    </p>
-    """, unsafe_allow_html=True)
-
-    if not filtered_df.empty:
-        st.dataframe(
-            filtered_df.style.applymap(color_ev, subset=["EV%"]),
-            use_container_width=True
-        )
-    else:
-        st.info("No valid betting data available to display.")
+        st.dataframe(filtered_df.style.applymap(color_ev, subset=["EV%"]), use_container_width=True)
 else:
     st.warning("No betting data available at the moment.")
-
