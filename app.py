@@ -7,45 +7,44 @@ from datetime import datetime
 import os
 import io
 
-# Replace 'your api key' with actual key
+# Replace with your actual API key
 API_KEY = "3d4eabb1db321b1add71a25189a77697"
-
 st.set_page_config(page_title="NBA Betting Insights", layout="wide")
 
-# === STYLES AND BANNER ===
+# === STYLES ===
 st.markdown("""
 <style>
 body {
     background-color: #f4f6fa;
 }
 .section {
-    background: white;
-    border-radius: 15px;
+    background: #0A2540;
+    border-radius: 16px;
     padding: 25px;
     margin-bottom: 25px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.1);
+    color: white;
 }
 .section-header {
     font-size: 24px;
-    font-weight: 600;
+    font-weight: bold;
+    color: #FFD700;
     margin-bottom: 15px;
-    color: #003366;
 }
 .ticker {
-    width: 100%;
-    overflow: hidden;
-    background: rgba(173, 216, 230, 0.3); /* light blue tint */
+    background-color: #e8f0fe;
     padding: 8px 0;
-    margin-bottom: 10px;
+    overflow: hidden;
+    white-space: nowrap;
+    width: 100%;
 }
 .ticker span {
     display: inline-block;
-    white-space: nowrap;
-    animation: scroll-left 60s linear infinite;
+    animation: scroll-left 30s linear infinite;
 }
 .ticker img {
-    height: 32px;
-    margin: 0 10px;
+    height: 28px;
+    margin: 0 12px;
     vertical-align: middle;
 }
 @keyframes scroll-left {
@@ -55,8 +54,8 @@ body {
 </style>
 """, unsafe_allow_html=True)
 
-# TEAM LOGOS (all 30 teams)
-team_logos = [
+# === NBA TEAM LOGOS ===
+logos = [
     "https://loodibee.com/wp-content/uploads/nba-atlanta-hawks-logo.png",
     "https://loodibee.com/wp-content/uploads/nba-boston-celtics-logo.png",
     "https://loodibee.com/wp-content/uploads/nba-brooklyn-nets-logo.png",
@@ -88,13 +87,9 @@ team_logos = [
     "https://loodibee.com/wp-content/uploads/nba-utah-jazz-logo.png",
     "https://loodibee.com/wp-content/uploads/nba-washington-wizards-logo.png"
 ]
+st.markdown(f"<div class='ticker'><span>{''.join([f'<img src=\"{logo}\" />' for logo in logos])}</span></div>", unsafe_allow_html=True)
 
-# Render banner
-st.markdown(f"""
-<div class="ticker"><span>{''.join([f'<img src="{logo}" />' for logo in team_logos])}</span></div>
-""", unsafe_allow_html=True)
-
-# === HEADER ===
+# === PAGE HEADER ===
 st.image("https://loodibee.com/wp-content/uploads/nba-logo.png", width=90)
 st.markdown("<h1 style='color:#1E88E5;'>NBA Betting Insights</h1>", unsafe_allow_html=True)
 
@@ -127,22 +122,19 @@ def calc_ev(prob_model, odds):
     ev = (prob_model * (odds if odds > 0 else 100)) - ((1 - prob_model) * 100)
     return round(ev, 2), round(prob_model * 100, 1), round(implied_prob * 100, 1)
 
-# === DATA ===
+# === DATA FETCHING & FILTERS ===
 today = datetime.today().strftime("%Y-%m-%d")
 odds_data = fetch_odds()
 
-# === FILTERS ===
 st.markdown("<div class='section'>", unsafe_allow_html=True)
 st.markdown("<div class='section-header'>📌 Filters</div>", unsafe_allow_html=True)
-
 ev_threshold = st.slider("Minimum Expected Value (%)", -100, 100, 0)
 all_teams = sorted({team for game in odds_data for team in [game.get("home_team"), *game.get("teams", [])] if team})
 team_filter = st.selectbox("Filter by Team (Optional)", options=["All Teams"] + all_teams)
 market_filter = st.radio("Filter by Market Type", options=["All", "h2h", "spreads", "totals"], horizontal=True)
-
 st.markdown("</div>", unsafe_allow_html=True)
 
-# === BET TABLE GENERATION ===
+# === BET ENGINE ===
 TEAM_LOGOS = {
     "Indiana Pacers": "https://loodibee.com/wp-content/uploads/nba-indiana-pacers-logo.png",
     "Oklahoma City Thunder": "https://loodibee.com/wp-content/uploads/nba-oklahoma-city-thunder-logo.png"
@@ -193,7 +185,7 @@ if not new_data.empty:
     full_history_df = pd.concat([full_history_df, new_data], ignore_index=True)
     full_history_df.to_csv(history_path, index=False)
 
-# === TOP BETS ===
+# === DISPLAY ===
 if not new_data.empty:
     st.markdown("<div class='section'>", unsafe_allow_html=True)
     st.markdown("<div class='section-header'>🔥 Top 3 Bets</div>", unsafe_allow_html=True)
@@ -211,16 +203,12 @@ if not new_data.empty:
                 st.image(home_logo, width=50)
     st.markdown("</div>", unsafe_allow_html=True)
 
-# === TABLE ===
-if not new_data.empty:
     st.markdown("<div class='section'>", unsafe_allow_html=True)
     st.markdown("<div class='section-header'>📊 Full Bet Table</div>", unsafe_allow_html=True)
     st.dataframe(new_data, use_container_width=True)
     st.download_button("📥 Download CSV", new_data.to_csv(index=False), f"nba_bets_{today}.csv")
     st.markdown("</div>", unsafe_allow_html=True)
 
-# === CHARTS ===
-if not new_data.empty:
     st.markdown("<div class='section'>", unsafe_allow_html=True)
     st.markdown("<div class='section-header'>📈 Charts</div>", unsafe_allow_html=True)
     col1, col2 = st.columns(2)
@@ -245,7 +233,7 @@ if not new_data.empty:
             st.markdown("**How to read**: A rising trend implies improving model performance.")
     st.markdown("</div>", unsafe_allow_html=True)
 
-# === PERFORMANCE ===
+# === MODEL METRICS ===
 if not full_history_df.empty:
     st.markdown("<div class='section'>", unsafe_allow_html=True)
     st.markdown("<div class='section-header'>✅ Model Performance</div>", unsafe_allow_html=True)
