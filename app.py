@@ -39,6 +39,47 @@ def calc_ev(prob_model, odds):
     return round(ev, 2), round(prob_model * 100, 1), round(implied_prob * 100, 1)
 
 st.set_page_config(page_title="NBA Betting Insights", layout="wide")
+# --- NBA Team Logo Banner with Light Blue Background ---
+st.markdown("""
+    <style>
+    .ticker {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        z-index: 1000;
+        background-color: rgba(173, 216, 230, 0.6); /* Light blue with transparency */
+        overflow: hidden;
+        white-space: nowrap;
+        padding: 5px 0;
+    }
+    .ticker span {
+        display: inline-block;
+        padding-left: 100%;
+        animation: scroll-left 60s linear infinite;
+    }
+    .ticker img {
+        height: 30px;
+        margin: 0 12px;
+        vertical-align: middle;
+    }
+    @keyframes scroll-left {
+        0% { transform: translateX(0); }
+        100% { transform: translateX(-100%); }
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+logos = [
+    "atlanta-hawks", "boston-celtics", "brooklyn-nets", "charlotte-hornets", "chicago-bulls",
+    "cleveland-cavaliers", "dallas-mavericks", "denver-nuggets", "detroit-pistons", "golden-state-warriors",
+    "houston-rockets", "indiana-pacers", "la-clippers", "la-lakers", "memphis-grizzlies", "miami-heat",
+    "milwaukee-bucks", "minnesota-timberwolves", "new-orleans-pelicans", "new-york-knicks",
+    "oklahoma-city-thunder", "orlando-magic", "philadelphia-76ers", "phoenix-suns", "portland-trail-blazers",
+    "sacramento-kings", "san-antonio-spurs", "toronto-raptors", "utah-jazz", "washington-wizards"
+]
+logo_imgs = ''.join([f'<img src="https://loodibee.com/wp-content/uploads/nba-{team}-logo.png"/>' for team in logos])
+st.markdown(f"<div class='ticker'><span>{logo_imgs}</span></div>", unsafe_allow_html=True)
 st.image("https://media.tenor.com/VbV35bUNRpoAAAAC/basketball-bounce.gif", width=100)
 
 # --- Transparent Floating NBA Logo Banner ---
