@@ -149,16 +149,66 @@ if odds_data:
                         "Implied": implied
                     })
 
-    df = pd.DataFrame(bet_list)
+   df = pd.DataFrame(bet_list)
 
+if df.empty:
+    st.warning("No valid betting data returned from API.")
+else:
     st.markdown("## 📊 Top Model-Picked Bets Today")
     min_ev = st.slider("Minimum Expected Value (%)", min_value=-100, max_value=100, value=0)
 
-    if "EV%" in df.columns:
-        filtered_df = df[df["EV%"] >= min_ev].copy()
-    else:
+    if "EV%" not in df.columns:
         st.warning("EV% column not found in data.")
-        filtered_df = pd.DataFrame()
+    else:
+        filtered_df = df[df["EV%"] >= min_ev].copy()
+
+        def color_ev(val):
+            color = "green" if val > 0 else "red" if val < 0 else "black"
+            return f"color: {color}"
+
+        st.markdown("""
+        <style>
+        .tooltip {
+          display: inline-block;
+          position: relative;
+          cursor: help;
+        }
+        .tooltip .tooltiptext {
+          visibility: hidden;
+          width: 200px;
+          background-color: #555;
+          color: #fff;
+          text-align: center;
+          border-radius: 6px;
+          padding: 5px;
+          position: absolute;
+          z-index: 1;
+          bottom: 125%;
+          left: 50%;
+          margin-left: -100px;
+          opacity: 0;
+          transition: opacity 0.3s;
+        }
+        .tooltip:hover .tooltiptext {
+          visibility: visible;
+          opacity: 1;
+        }
+        </style>
+        <p>
+          <span class="tooltip">EV%<span class="tooltiptext">Expected Value based on model vs implied odds</span></span>
+          |
+          <span class="tooltip">Model Prob<span class="tooltiptext">Probability based on proprietary ELO-style rating model</span></span>
+        </p>
+        """, unsafe_allow_html=True)
+
+        if not filtered_df.empty:
+            st.dataframe(
+                filtered_df.style.applymap(color_ev, subset=["EV%"]),
+                use_container_width=True
+            )
+        else:
+            st.info("No valid betting data available to display.")
+
 
     def color_ev(val):
         color = "green" if val > 0 else "red" if val < 0 else "black"
