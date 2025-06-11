@@ -39,6 +39,49 @@ def calc_ev(prob_model, odds):
     return round(ev, 2), round(prob_model * 100, 1), round(implied_prob * 100, 1)
 
 st.set_page_config(page_title="NBA Betting Insights", layout="wide")
+# Inject floating NBA team banner
+nba_logos = [
+    "https://loodibee.com/wp-content/uploads/nba-atlanta-hawks-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-boston-celtics-logo.png",
+    ...
+    "https://loodibee.com/wp-content/uploads/nba-washington-wizards-logo.png"
+]
+
+st.markdown("""
+<style>
+.ticker {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    background: transparent;
+    z-index: 9999;
+    white-space: nowrap;
+    overflow: hidden;
+}
+.ticker span {
+    display: inline-block;
+    animation: ticker-scroll 60s linear infinite;
+}
+.ticker img {
+    height: 32px;
+    margin: 0 12px;
+    vertical-align: middle;
+}
+@keyframes ticker-scroll {
+    0% { transform: translateX(100%); }
+    100% { transform: translateX(-100%); }
+}
+</style>
+""", unsafe_allow_html=True)
+
+st.markdown(f"""
+<div class='ticker'>
+    <span>
+        {''.join([f'<img src="{logo}" />' for logo in nba_logos])}
+    </span>
+</div>
+""", unsafe_allow_html=True)
 st.image("https://media.tenor.com/VbV35bUNRpoAAAAC/basketball-bounce.gif", width=100)
 
 # Transparent Banner with Team Logos
