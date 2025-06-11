@@ -141,8 +141,11 @@ odds_data = fetch_odds()
 if odds_data:
     bet_list = []
     for game in odds_data:
-        home = game['home_team']
-        away = [team for team in game['teams'] if team != home][0]
+        home = game.get('home_team')
+        teams = game.get("teams", [])
+        if not teams or home not in teams or len(teams) != 2:
+            continue
+        away = [team for team in teams if team != home][0]
         for bookmaker in game.get("bookmakers", []):
             for market in bookmaker.get("markets", []):
                 for outcome in market.get("outcomes", []):
@@ -166,12 +169,10 @@ if odds_data:
     min_ev = st.slider("Minimum Expected Value (%)", min_value=-100, max_value=100, value=0)
     filtered_df = df[df["EV%"] >= min_ev].copy()
 
-    # EV color highlighting
     def color_ev(val):
         color = "green" if val > 0 else "red" if val < 0 else "black"
         return f"color: {color}"
 
-    # Add tooltips
     st.markdown("""
     <style>
     .tooltip {
@@ -207,9 +208,12 @@ if odds_data:
     </p>
     """, unsafe_allow_html=True)
 
-    st.dataframe(
-        filtered_df.style.applymap(color_ev, subset=["EV%"]),
-        use_container_width=True
-    )
+    if not filtered_df.empty:
+        st.dataframe(
+            filtered_df.style.applymap(color_ev, subset=["EV%"]),
+            use_container_width=True
+        )
+    else:
+        st.info("No valid betting data available to display.")
 else:
     st.warning("No betting data available at the moment.")
