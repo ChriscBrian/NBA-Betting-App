@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 from datetime import datetime
 import os
 
-API_KEY = "3d4eabb1db321b1add71a25189a77697"
+API_KEY = "3d4eabb1db321b1add71a25189a77697"  # Replace with your actual key
 
 st.set_page_config(page_title="NBA Betting Insights", layout="wide")
 
@@ -74,7 +74,10 @@ def fetch_odds():
     try:
         response = requests.get(url, params=params, timeout=10)
         response.raise_for_status()
-        return response.json()
+        data = response.json()
+        if not data:
+            raise ValueError("Empty data from API")
+        return data
     except Exception as e:
         st.warning(f"⚠️ Live data fetch failed. Using mock data instead.\n\nError: {e}")
         return [
