@@ -1,54 +1,75 @@
-# nba_betting_insights/app.py
+# app.py
 
-import streamlit as st
 import requests
 import pandas as pd
+import streamlit as st
 import matplotlib.pyplot as plt
 from datetime import datetime
+import os
 
-st.set_page_config(page_title="NBA Betting Insights", layout="wide")
+# CONFIG
+API_KEY = "3d4eabb1db321b1add71a25189a77697"
+st.set_page_config(page_title="NBA Betting Dashboard", layout="wide")
 
-API_KEY = "3d4eabb1db321b1add71a25189a77697"  # Replace with your actual API key
-
-# --- STYLES ---
+# STYLES
 st.markdown("""
 <style>
 body {
-    background-color: #f4f6fa;
+    background-color: #f5f8fc;
 }
-.section {
-    background: linear-gradient(to right, #001f3f, #003366);
-    border-radius: 20px;
-    padding: 20px;
-    margin: 20px 0;
-    color: white;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+h1, h2, h3 {
+    color: #1E2B5C;
 }
-.section h3 {
-    color: #FFDF00;
-    margin-bottom: 10px;
-}
-.banner {
-    background-color: #e8f0ff;
-    padding: 5px 0;
+.ticker {
+    background: #dbe9f4;
+    padding: 8px;
     overflow: hidden;
     white-space: nowrap;
+    border-radius: 10px;
+    margin-bottom: 10px;
 }
-.banner img {
+.ticker span {
+    display: inline-block;
+    animation: scroll-left 40s linear infinite;
+}
+.ticker img {
     height: 30px;
     margin: 0 10px;
-    vertical-align: middle;
-    animation: scroll 60s linear infinite;
 }
-@keyframes scroll {
-  0% { transform: translateX(100%); }
-  100% { transform: translateX(-100%); }
+@keyframes scroll-left {
+    0% { transform: translateX(100%); }
+    100% { transform: translateX(-100%); }
+}
+.dashboard-title {
+    font-size: 36px;
+    font-weight: bold;
+    text-align: center;
+    color: #111;
+    margin-top: 20px;
+    margin-bottom: 30px;
+}
+.box {
+    background-color: #001f3f;
+    border-radius: 15px;
+    padding: 25px;
+    margin: 10px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+    color: white;
+}
+.section-grid {
+    display: flex;
+    flex-wrap: wrap;
+    justify-content: space-between;
+}
+.section-grid > div {
+    flex: 1 1 calc(50% - 20px);
+    margin-bottom: 20px;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# --- LOGO BANNER ---
-NBA_LOGOS = [
+# NBA TEAM LOGOS FOR BANNER
+nba_logos = [
     "https://loodibee.com/wp-content/uploads/nba-atlanta-hawks-logo.png",
     "https://loodibee.com/wp-content/uploads/nba-boston-celtics-logo.png",
     "https://loodibee.com/wp-content/uploads/nba-brooklyn-nets-logo.png",
@@ -80,16 +101,14 @@ NBA_LOGOS = [
     "https://loodibee.com/wp-content/uploads/nba-utah-jazz-logo.png",
     "https://loodibee.com/wp-content/uploads/nba-washington-wizards-logo.png"
 ]
+
+# HEADER
 st.markdown(f"""
-<div class="banner">
-  {''.join([f'<img src="{logo}">' for logo in NBA_LOGOS])}
-</div>
+<div class='ticker'><span>{''.join([f'<img src="{logo}" />' for logo in nba_logos])}</span></div>
 """, unsafe_allow_html=True)
+st.markdown("<div class='dashboard-title'>NBA Betting Insights Dashboard</div>", unsafe_allow_html=True)
 
-# --- HEADER ---
-st.markdown("<h1 style='text-align:center;'>NBA Betting Insights Dashboard</h1>", unsafe_allow_html=True)
-
-# --- API FETCH ---
+# FETCH ODDS
 @st.cache_data(show_spinner=False)
 def fetch_odds():
     url = "https://api.the-odds-api.com/v4/sports/basketball_nba/odds"
@@ -100,14 +119,12 @@ def fetch_odds():
         "oddsFormat": "american"
     }
     try:
-        res = requests.get(url, params=params)
-        res.raise_for_status()
-        return res.json()
-    except Exception as e:
-        st.error(f"API error: {e}")
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        return response.json()
+    except:
         return []
 
-# --- MODEL LOGIC ---
 def estimate_model_probability(odds):
     try:
         return round(1 / (1 + 10 ** (-odds / 400)), 4)
@@ -119,28 +136,24 @@ def calc_ev(prob_model, odds):
     ev = (prob_model * (odds if odds > 0 else 100)) - ((1 - prob_model) * 100)
     return round(ev, 2), round(prob_model * 100, 1), round(implied_prob * 100, 1)
 
-# --- FETCH DATA ---
-data = fetch_odds()
 today = datetime.today().strftime("%Y-%m-%d")
-
-# --- BUILD DATAFRAME ---
+odds_data = fetch_odds()
 bets = []
-for game in data:
+
+for game in odds_data:
     home = game.get("home_team")
     teams = game.get("teams", [])
     if not teams or home not in teams or len(teams) != 2:
         continue
     away = [team for team in teams if team != home][0]
     matchup = f"{away} @ {home}"
-    for book in game.get("bookmakers", []):
-        for market in book.get("markets", []):
+    for bookmaker in game.get("bookmakers", []):
+        for market in bookmaker.get("markets", []):
             for outcome in market.get("outcomes", []):
                 team = outcome.get("name")
                 odds = outcome.get("price")
-                if odds is None:
-                    continue
-                model_prob = estimate_model_probability(odds)
-                ev, model_pct, implied_pct = calc_ev(model_prob, odds)
+                prob = estimate_model_probability(odds)
+                ev, model_pct, implied_pct = calc_ev(prob, odds)
                 bets.append({
                     "Date": today,
                     "Matchup": matchup,
@@ -152,39 +165,68 @@ for game in data:
                     "Implied": implied_pct
                 })
 
-# --- DISPLAY ---
-if not bets:
-    st.warning("No betting data available.")
-else:
-    df = pd.DataFrame(bets)
+df = pd.DataFrame(bets)
 
-    st.markdown("<div class='section'><h3>⚙️ Filter Settings</h3>", unsafe_allow_html=True)
-    ev_cutoff = st.slider("Minimum Expected Value (%)", min_value=-100, max_value=100, value=-100)
-    df = df[df["EV%"] >= ev_cutoff]
+# ==== SECTION GRID ====
+st.markdown("<div class='section-grid'>", unsafe_allow_html=True)
+
+# BOX 1 - EV Distribution
+with st.container():
+    st.markdown("<div class='box'>", unsafe_allow_html=True)
+    st.subheader("📊 Distribution of EV%")
+    if not df.empty and "EV%" in df.columns:
+        fig1, ax1 = plt.subplots()
+        df["EV%"].hist(ax=ax1, bins=20, color="#FFD700")
+        ax1.set_title("EV% Histogram")
+        ax1.set_xlabel("Expected Value %")
+        ax1.set_ylabel("Number of Bets")
+        st.pyplot(fig1)
+        st.markdown("💡 Higher EV suggests better model value opportunities.")
+    else:
+        st.info("No data available for EV% histogram.")
     st.markdown("</div>", unsafe_allow_html=True)
 
+# BOX 2 - Table
+with st.container():
+    st.markdown("<div class='box'>", unsafe_allow_html=True)
+    st.subheader("📋 Full Odds Table")
     if not df.empty:
-        col1, col2 = st.columns(2)
-
-        with col1:
-            st.markdown("<div class='section'><h3>📊 Distribution of EV%</h3>", unsafe_allow_html=True)
-            fig, ax = plt.subplots()
-            df["EV%"].hist(ax=ax, bins=15, color="#FFDF00")
-            ax.set_title("Expected Value Histogram")
-            ax.set_xlabel("EV%")
-            ax.set_ylabel("Frequency")
-            st.pyplot(fig)
-            st.markdown("</div>", unsafe_allow_html=True)
-
-        with col2:
-            st.markdown("<div class='section'><h3>📈 Top Picks</h3>", unsafe_allow_html=True)
-            top_bets = df.sort_values("EV%", ascending=False).head(5)
-            st.dataframe(top_bets[["Matchup", "Team", "Market", "Odds", "EV%"]], use_container_width=True)
-            st.markdown("</div>", unsafe_allow_html=True)
-
-        st.markdown("<div class='section'><h3>📥 Full Data</h3>", unsafe_allow_html=True)
         st.dataframe(df, use_container_width=True)
-        st.download_button("Download CSV", df.to_csv(index=False), "nba_model_bets.csv")
-        st.markdown("</div>", unsafe_allow_html=True)
     else:
-        st.warning("No valid bets passed filter logic.")
+        st.info("No odds data to show.")
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# BOX 3 - EV Trend (historical)
+with st.container():
+    st.markdown("<div class='box'>", unsafe_allow_html=True)
+    st.subheader("📈 EV Trend Over Time")
+    hist_path = "daily_history.csv"
+    if os.path.exists(hist_path):
+        hist_df = pd.read_csv(hist_path)
+        if not hist_df.empty:
+            trend = hist_df.groupby("Date")["EV%"].mean().reset_index()
+            fig2, ax2 = plt.subplots()
+            ax2.plot(trend["Date"], trend["EV%"], marker="o", color="#FF9900")
+            ax2.set_title("Average EV% by Date")
+            ax2.set_xlabel("Date")
+            ax2.set_ylabel("EV%")
+            ax2.tick_params(axis="x", rotation=45)
+            st.pyplot(fig2)
+        else:
+            st.info("No historical trend data available.")
+    else:
+        st.info("History file not found.")
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# BOX 4 - Model Summary
+with st.container():
+    st.markdown("<div class='box'>", unsafe_allow_html=True)
+    st.subheader("📌 Summary Stats")
+    if not df.empty:
+        st.metric("Number of Model Picks", len(df))
+        st.metric("Top EV%", f"{df['EV%'].max():.2f}%")
+    else:
+        st.info("No data for summary.")
+    st.markdown("</div>", unsafe_allow_html=True)
+
+st.markdown("</div>", unsafe_allow_html=True)
