@@ -146,8 +146,40 @@ else:
                         "Implied%": implied_pct
                     })
 
-    df = pd.DataFrame(bets)
+        df = pd.DataFrame(bets)
 
+    # Filter options
+    st.markdown("<div class='section'><h3>⚙️ Filter Settings</h3>", unsafe_allow_html=True)
+    ev_cutoff = st.slider("Minimum Expected Value (%)", min_value=-100, max_value=100, value=-100)
+    df = df[df["EV%"] >= ev_cutoff]
+    st.markdown("</div>", unsafe_allow_html=True)
+
+    if not df.empty:
+        col1, col2 = st.columns(2)
+
+        with col1:
+            st.markdown("<div class='section'><h3>📊 Distribution of EV%</h3>", unsafe_allow_html=True)
+            fig, ax = plt.subplots()
+            df["EV%"].hist(ax=ax, bins=15, color="#FFDF00")
+            ax.set_title("Expected Value Histogram")
+            ax.set_xlabel("EV%")
+            ax.set_ylabel("Frequency")
+            st.pyplot(fig)
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        with col2:
+            st.markdown("<div class='section'><h3>📈 Top Picks</h3>", unsafe_allow_html=True)
+            top_bets = df.sort_values("EV%", ascending=False).head(5)
+            st.dataframe(top_bets[["Matchup", "Team", "Market", "Odds", "EV%"]], use_container_width=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+
+        st.markdown("<div class='section'><h3>📥 Full Data</h3>", unsafe_allow_html=True)
+        st.dataframe(df, use_container_width=True)
+        st.download_button("Download CSV", df.to_csv(index=False), "nba_model_bets.csv")
+        st.markdown("</div>", unsafe_allow_html=True)
+
+    else:
+        st.warning("No valid bets passed filter logic. Try lowering the EV threshold.")
     if not df.empty:
         col1, col2 = st.columns(2)
 
