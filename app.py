@@ -230,3 +230,58 @@ with st.container():
     st.markdown("</div>", unsafe_allow_html=True)
 
 st.markdown("</div>", unsafe_allow_html=True)
+# ---------- COMMUNITY BET POSTING ----------
+
+# --- Initialize session state if not already ---
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+if "username" not in st.session_state:
+    st.session_state.username = ""
+if "user_bets" not in st.session_state:
+    st.session_state.user_bets = []
+
+def login_section():
+    st.subheader("Login")
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+    if st.button("Login"):
+        if username in {"user1": "password1", "user2": "password2"} and password == {"user1": "password1", "user2": "password2"}[username]:
+            st.session_state.logged_in = True
+            st.session_state.username = username
+            st.success("Successfully logged in!")
+        else:
+            st.error("Invalid login credentials.")
+
+def post_bets_section():
+    st.subheader(f"Post a Bet ({st.session_state.username})")
+
+    with st.form("bet_form"):
+        game = st.text_input("Game", placeholder="e.g. OKC vs IND")
+        bet_type = st.selectbox("Bet Type", ["Points", "Rebounds", "Assists", "Parlay", "Other"])
+        odds = st.text_input("Odds (e.g. +250 or -110)")
+        stake = st.number_input("Stake ($)", min_value=0.0, step=1.0)
+        submitted = st.form_submit_button("Submit Bet")
+        if submitted:
+            st.session_state.user_bets.append({
+                "User": st.session_state.username,
+                "Game": game,
+                "Type": bet_type,
+                "Odds": odds,
+                "Stake": stake
+            })
+            st.success("Bet submitted!")
+
+    if st.session_state.user_bets:
+        st.markdown("### Your Submitted Bets")
+        df_bets = pd.DataFrame(st.session_state.user_bets)
+        st.dataframe(df_bets)
+
+# --- Add new tab ---
+st.markdown("---")
+tabs = st.tabs(["Dashboard", "Post Bets"])
+with tabs[1]:
+    st.header("📝 Community Bet Posting")
+    if not st.session_state.logged_in:
+        login_section()
+    else:
+        post_bets_section()
