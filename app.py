@@ -1,4 +1,4 @@
-# app.py
+# NBA Betting Insights with Floating Box Layout, Banner, Parlay Generator
 
 import requests
 import pandas as pd
@@ -6,109 +6,63 @@ import streamlit as st
 import matplotlib.pyplot as plt
 from datetime import datetime
 import os
+import io
+import random
 
-# CONFIG
+# === CONFIG ===
 API_KEY = "3d4eabb1db321b1add71a25189a77697"
-st.set_page_config(page_title="NBA Betting Dashboard", layout="wide")
+st.set_page_config(page_title="NBAster - Betting Insights", layout="wide")
 
-# STYLES
+# === STYLES ===
 st.markdown("""
 <style>
 body {
-    background-color: #f5f8fc;
+    background-color: #f0f4f8;
 }
-h1, h2, h3 {
-    color: #1E2B5C;
-}
-.ticker {
-    background: #dbe9f4;
-    padding: 8px;
+.banner-container {
     overflow: hidden;
     white-space: nowrap;
-    border-radius: 10px;
+    padding: 10px 0;
     margin-bottom: 10px;
 }
-.ticker span {
-    display: inline-block;
-    animation: scroll-left 40s linear infinite;
-}
-.ticker img {
+.banner-container img {
     height: 30px;
-    margin: 0 10px;
+    margin: 0 15px;
+    animation: scroll 40s linear infinite;
 }
-@keyframes scroll-left {
-    0% { transform: translateX(100%); }
-    100% { transform: translateX(-100%); }
+@keyframes scroll {
+  0% { transform: translateX(100%) }
+  100% { transform: translateX(-100%) }
 }
-.dashboard-title {
-    font-size: 36px;
-    font-weight: bold;
-    text-align: center;
-    color: #111;
-    margin-top: 20px;
-    margin-bottom: 30px;
-}
-.box {
-    background-color: #001f3f;
-    border-radius: 15px;
-    padding: 25px;
-    margin: 10px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+.section-box {
+    background: linear-gradient(135deg, #001f3f 20%, #003366 80%);
     color: white;
+    border-radius: 20px;
+    padding: 20px;
+    margin: 10px;
+    box-shadow: 0 6px 16px rgba(0,0,0,0.2);
 }
-.section-grid {
-    display: flex;
-    flex-wrap: wrap;
-    justify-content: space-between;
-}
-.section-grid > div {
-    flex: 1 1 calc(50% - 20px);
-    margin-bottom: 20px;
+h3 {
+    color: #FFDF00;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# NBA TEAM LOGOS FOR BANNER
-nba_logos = [
-    "https://loodibee.com/wp-content/uploads/nba-atlanta-hawks-logo.png",
+# === TEAM BANNER ===
+TEAM_LOGO_URLS = [
     "https://loodibee.com/wp-content/uploads/nba-boston-celtics-logo.png",
-    "https://loodibee.com/wp-content/uploads/nba-brooklyn-nets-logo.png",
-    "https://loodibee.com/wp-content/uploads/nba-charlotte-hornets-logo.png",
-    "https://loodibee.com/wp-content/uploads/nba-chicago-bulls-logo.png",
-    "https://loodibee.com/wp-content/uploads/nba-cleveland-cavaliers-logo.png",
-    "https://loodibee.com/wp-content/uploads/nba-dallas-mavericks-logo.png",
-    "https://loodibee.com/wp-content/uploads/nba-denver-nuggets-logo.png",
-    "https://loodibee.com/wp-content/uploads/nba-detroit-pistons-logo.png",
-    "https://loodibee.com/wp-content/uploads/nba-golden-state-warriors-logo.png",
-    "https://loodibee.com/wp-content/uploads/nba-houston-rockets-logo.png",
-    "https://loodibee.com/wp-content/uploads/nba-indiana-pacers-logo.png",
-    "https://loodibee.com/wp-content/uploads/nba-la-clippers-logo.png",
-    "https://loodibee.com/wp-content/uploads/nba-la-lakers-logo.png",
-    "https://loodibee.com/wp-content/uploads/nba-memphis-grizzlies-logo.png",
     "https://loodibee.com/wp-content/uploads/nba-miami-heat-logo.png",
-    "https://loodibee.com/wp-content/uploads/nba-milwaukee-bucks-logo.png",
-    "https://loodibee.com/wp-content/uploads/nba-minnesota-timberwolves-logo.png",
-    "https://loodibee.com/wp-content/uploads/nba-new-orleans-pelicans-logo.png",
-    "https://loodibee.com/wp-content/uploads/nba-new-york-knicks-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-indiana-pacers-logo.png",
     "https://loodibee.com/wp-content/uploads/nba-oklahoma-city-thunder-logo.png",
-    "https://loodibee.com/wp-content/uploads/nba-orlando-magic-logo.png",
-    "https://loodibee.com/wp-content/uploads/nba-philadelphia-76ers-logo.png",
-    "https://loodibee.com/wp-content/uploads/nba-phoenix-suns-logo.png",
-    "https://loodibee.com/wp-content/uploads/nba-portland-trail-blazers-logo.png",
-    "https://loodibee.com/wp-content/uploads/nba-sacramento-kings-logo.png",
-    "https://loodibee.com/wp-content/uploads/nba-san-antonio-spurs-logo.png",
-    "https://loodibee.com/wp-content/uploads/nba-toronto-raptors-logo.png",
-    "https://loodibee.com/wp-content/uploads/nba-utah-jazz-logo.png",
-    "https://loodibee.com/wp-content/uploads/nba-washington-wizards-logo.png"
+    "https://loodibee.com/wp-content/uploads/nba-los-angeles-lakers-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-golden-state-warriors-logo.png"
 ]
+st.markdown("<div class='banner-container'>" + "".join(
+    [f"<img src='{logo}'/>" for logo in TEAM_LOGO_URLS * 3]) + "</div>", unsafe_allow_html=True)
 
-# HEADER
-st.markdown(f"""
-<div class='ticker'><span>{''.join([f'<img src="{logo}" />' for logo in nba_logos])}</span></div>
-""", unsafe_allow_html=True)
-st.markdown("<div class='dashboard-title'>NBA Betting Insights Dashboard</div>", unsafe_allow_html=True)
+st.title("🏀 NBAster - Betting Insights & Picks")
 
-# FETCH ODDS
+# === FUNCTIONS ===
 @st.cache_data(show_spinner=False)
 def fetch_odds():
     url = "https://api.the-odds-api.com/v4/sports/basketball_nba/odds"
@@ -122,7 +76,8 @@ def fetch_odds():
         response = requests.get(url, params=params)
         response.raise_for_status()
         return response.json()
-    except:
+    except Exception as e:
+        st.error(f"Error fetching odds: {e}")
         return []
 
 def estimate_model_probability(odds):
@@ -136,152 +91,114 @@ def calc_ev(prob_model, odds):
     ev = (prob_model * (odds if odds > 0 else 100)) - ((1 - prob_model) * 100)
     return round(ev, 2), round(prob_model * 100, 1), round(implied_prob * 100, 1)
 
+def generate_parlay(players):
+    if len(players) < 3:
+        return []
+    return [
+        {"Player": random.choice(players), "Type": "Points"},
+        {"Player": random.choice(players), "Type": "Rebounds"},
+        {"Player": random.choice(players), "Type": "Assists"},
+        {"Player": random.choice(players), "Type": "Points"},
+        {"Player": random.choice(players), "Type": random.choice(["Rebounds", "Assists"])}
+    ]
+
+# === DATA LOAD ===
 today = datetime.today().strftime("%Y-%m-%d")
 odds_data = fetch_odds()
-bets = []
+history_path = "daily_history.csv"
+full_history_df = pd.read_csv(history_path) if os.path.exists(history_path) else pd.DataFrame()
 
+# === FILTERS ===
+ev_threshold = st.slider("🎯 Minimum EV%", -100, 100, 0)
+teams = sorted({team for g in odds_data for team in [g.get("home_team"), *g.get("teams", [])] if team})
+team_filter = st.selectbox("Team Filter", ["All Teams"] + teams)
+market_filter = st.radio("Market Type", ["All", "h2h", "spreads", "totals"], horizontal=True)
+
+# === ANALYSIS ===
+top_bets, history_data = [], []
 for game in odds_data:
-    home = game.get("home_team")
-    teams = game.get("teams", [])
-    if not teams or home not in teams or len(teams) != 2:
+    home, teams_list = game.get("home_team"), game.get("teams", [])
+    if not teams_list or home not in teams_list or len(teams_list) != 2:
         continue
-    away = [team for team in teams if team != home][0]
+    away = [t for t in teams_list if t != home][0]
+    if team_filter != "All Teams" and team_filter not in (home, away):
+        continue
     matchup = f"{away} @ {home}"
-    for bookmaker in game.get("bookmakers", []):
-        for market in bookmaker.get("markets", []):
+    for book in game.get("bookmakers", []):
+        for market in book.get("markets", []):
+            if market_filter != "All" and market["key"] != market_filter:
+                continue
             for outcome in market.get("outcomes", []):
-                team = outcome.get("name")
+                label = outcome.get("name")
                 odds = outcome.get("price")
-                prob = estimate_model_probability(odds)
-                ev, model_pct, implied_pct = calc_ev(prob, odds)
-                bets.append({
-                    "Date": today,
-                    "Matchup": matchup,
-                    "Team": team,
-                    "Market": market["key"],
-                    "Odds": odds,
-                    "Model Prob": model_pct,
-                    "EV%": ev,
-                    "Implied": implied_pct
-                })
+                model_prob = estimate_model_probability(odds)
+                ev, model_pct, implied_pct = calc_ev(model_prob, odds)
+                if ev >= ev_threshold:
+                    row = {
+                        "Date": today, "Matchup": matchup, "Bet": label,
+                        "Odds": odds, "Model Win%": model_pct,
+                        "EV%": ev, "Implied%": implied_pct,
+                        "Result": "Pending", "Market": market["key"]
+                    }
+                    top_bets.append((ev, matchup, label, odds, model_pct, implied_pct))
+                    history_data.append(row)
 
-df = pd.DataFrame(bets)
+# === SAVE HISTORY ===
+new_data = pd.DataFrame(history_data)
+if not new_data.empty:
+    full_history_df = pd.concat([full_history_df, new_data], ignore_index=True)
+    full_history_df.to_csv(history_path, index=False)
 
-# ==== SECTION GRID ====
-st.markdown("<div class='section-grid'>", unsafe_allow_html=True)
-
-# BOX 1 - EV Distribution
-with st.container():
-    st.markdown("<div class='box'>", unsafe_allow_html=True)
-    st.subheader("📊 Distribution of EV%")
-    if not df.empty and "EV%" in df.columns:
-        fig1, ax1 = plt.subplots()
-        df["EV%"].hist(ax=ax1, bins=20, color="#FFD700")
-        ax1.set_title("EV% Histogram")
-        ax1.set_xlabel("Expected Value %")
-        ax1.set_ylabel("Number of Bets")
-        st.pyplot(fig1)
-        st.markdown("💡 Higher EV suggests better model value opportunities.")
-    else:
-        st.info("No data available for EV% histogram.")
+# === 4-BOX LAYOUT ===
+col1, col2 = st.columns(2)
+with col1:
+    st.markdown("<div class='section-box'><h3>🔥 Top Bets</h3>", unsafe_allow_html=True)
+    for ev, matchup, label, odds, model_pct, implied_pct in sorted(top_bets, reverse=True)[:3]:
+        st.write(f"**{matchup}**: {label} @ {odds:+}")
+        st.write(f"Model: {model_pct}% | EV: {ev}% | Implied: {implied_pct}%")
     st.markdown("</div>", unsafe_allow_html=True)
 
-# BOX 2 - Table
-with st.container():
-    st.markdown("<div class='box'>", unsafe_allow_html=True)
-    st.subheader("📋 Full Odds Table")
-    if not df.empty:
-        st.dataframe(df, use_container_width=True)
-    else:
-        st.info("No odds data to show.")
+with col2:
+    st.markdown("<div class='section-box'><h3>🎯 Balanced Parlay</h3>", unsafe_allow_html=True)
+    sample_players = ["Shai Gilgeous-Alexander", "Obi Toppin", "Tyrese Haliburton", "Jalen Williams"]
+    parlay = generate_parlay(sample_players)
+    for leg in parlay:
+        st.write(f"{leg['Player']} - {leg['Type']}")
     st.markdown("</div>", unsafe_allow_html=True)
 
-# BOX 3 - EV Trend (historical)
-with st.container():
-    st.markdown("<div class='box'>", unsafe_allow_html=True)
-    st.subheader("📈 EV Trend Over Time")
-    hist_path = "daily_history.csv"
-    if os.path.exists(hist_path):
-        hist_df = pd.read_csv(hist_path)
-        if not hist_df.empty:
-            trend = hist_df.groupby("Date")["EV%"].mean().reset_index()
-            fig2, ax2 = plt.subplots()
-            ax2.plot(trend["Date"], trend["EV%"], marker="o", color="#FF9900")
-            ax2.set_title("Average EV% by Date")
-            ax2.set_xlabel("Date")
-            ax2.set_ylabel("EV%")
-            ax2.tick_params(axis="x", rotation=45)
-            st.pyplot(fig2)
-        else:
-            st.info("No historical trend data available.")
-    else:
-        st.info("History file not found.")
+col3, col4 = st.columns(2)
+with col3:
+    st.markdown("<div class='section-box'><h3>📈 EV Distribution</h3>", unsafe_allow_html=True)
+    if not new_data.empty:
+        fig, ax = plt.subplots()
+        new_data["EV%"].hist(bins=15, ax=ax, color="#FFDF00")
+        ax.set_title("Distribution of EV%")
+        st.pyplot(fig)
     st.markdown("</div>", unsafe_allow_html=True)
 
-# BOX 4 - Model Summary
-with st.container():
-    st.markdown("<div class='box'>", unsafe_allow_html=True)
-    st.subheader("📌 Summary Stats")
-    if not df.empty:
-        st.metric("Number of Model Picks", len(df))
-        st.metric("Top EV%", f"{df['EV%'].max():.2f}%")
-    else:
-        st.info("No data for summary.")
+with col4:
+    st.markdown("<div class='section-box'><h3>📊 EV Trend</h3>", unsafe_allow_html=True)
+    if not full_history_df.empty:
+        trend = full_history_df.groupby("Date")["EV%"].mean().reset_index()
+        fig2, ax2 = plt.subplots()
+        ax2.plot(trend["Date"], trend["EV%"], marker='o', color="#FFDF00")
+        ax2.set_title("Avg EV% by Date")
+        ax2.tick_params(axis="x", rotation=45)
+        st.pyplot(fig2)
     st.markdown("</div>", unsafe_allow_html=True)
 
-st.markdown("</div>", unsafe_allow_html=True)
-# ---------- COMMUNITY BET POSTING ----------
+# === BET TABLE ===
+if not new_data.empty:
+    st.markdown("<div class='section-box'><h3>📋 All Bets</h3>", unsafe_allow_html=True)
+    st.dataframe(new_data, use_container_width=True)
+    st.download_button("📥 Download CSV", new_data.to_csv(index=False), f"nba_bets_{today}.csv")
+    st.markdown("</div>", unsafe_allow_html=True)
 
-# --- Initialize session state if not already ---
-if "logged_in" not in st.session_state:
-    st.session_state.logged_in = False
-if "username" not in st.session_state:
-    st.session_state.username = ""
-if "user_bets" not in st.session_state:
-    st.session_state.user_bets = []
-
-def login_section():
-    st.subheader("Login")
-    username = st.text_input("Username")
-    password = st.text_input("Password", type="password")
-    if st.button("Login"):
-        if username in {"user1": "password1", "user2": "password2"} and password == {"user1": "password1", "user2": "password2"}[username]:
-            st.session_state.logged_in = True
-            st.session_state.username = username
-            st.success("Successfully logged in!")
-        else:
-            st.error("Invalid login credentials.")
-
-def post_bets_section():
-    st.subheader(f"Post a Bet ({st.session_state.username})")
-
-    with st.form("bet_form"):
-        game = st.text_input("Game", placeholder="e.g. OKC vs IND")
-        bet_type = st.selectbox("Bet Type", ["Points", "Rebounds", "Assists", "Parlay", "Other"])
-        odds = st.text_input("Odds (e.g. +250 or -110)")
-        stake = st.number_input("Stake ($)", min_value=0.0, step=1.0)
-        submitted = st.form_submit_button("Submit Bet")
-        if submitted:
-            st.session_state.user_bets.append({
-                "User": st.session_state.username,
-                "Game": game,
-                "Type": bet_type,
-                "Odds": odds,
-                "Stake": stake
-            })
-            st.success("Bet submitted!")
-
-    if st.session_state.user_bets:
-        st.markdown("### Your Submitted Bets")
-        df_bets = pd.DataFrame(st.session_state.user_bets)
-        st.dataframe(df_bets)
-
-# --- Add new tab ---
-st.markdown("---")
-tabs = st.tabs(["Dashboard", "Post Bets"])
-with tabs[1]:
-    st.header("📝 Community Bet Posting")
-    if not st.session_state.logged_in:
-        login_section()
-    else:
-        post_bets_section()
+# === PERFORMANCE ===
+if not full_history_df.empty:
+    st.markdown("<div class='section-box'><h3>✅ Model Hit Rate</h3>", unsafe_allow_html=True)
+    resolved = full_history_df[full_history_df["Result"].isin(["Win", "Loss"])]
+    if not resolved.empty:
+        win_rate = (resolved["Result"] == "Win").mean()
+        st.metric("Hit Rate", f"{win_rate*100:.1f}%")
+    st.markdown("</div>", unsafe_allow_html=True)
