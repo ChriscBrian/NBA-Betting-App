@@ -50,7 +50,7 @@ body {
 # ---------- LOGO BANNER ----------
 NBA_LOGOS = [
     "https://loodibee.com/wp-content/uploads/nba-atlanta-hawks-logo.png",
-    # … all your other logos …
+    # … include all your other logos here …
     "https://loodibee.com/wp-content/uploads/nba-washington-wizards-logo.png"
 ]
 st.markdown(f"""
@@ -70,7 +70,10 @@ if "username" not in st.session_state:
 if "user_bets" not in st.session_state:
     st.session_state.user_bets = []
 if "credentials" not in st.session_state:
-    st.session_state.credentials = {"user1": "password1", "user2": "password2"}
+    st.session_state.credentials = {
+        "user1": "password1",
+        "user2": "password2"
+    }
 
 # ---------- SAMPLE FALLBACK GAME ----------
 SAMPLE_GAME = [{
@@ -81,7 +84,7 @@ SAMPLE_GAME = [{
             "key": "spreads",
             "outcomes": [
                 {"name": "Lakers", "price": -110},
-                {"name": "Warriors", "price": +100}
+                {"name": "Warriors", "price": 100}
             ]
         }]
     }]
@@ -143,7 +146,7 @@ for game in raw_data:
                 if price is None:
                     continue
 
-                prob     = estimate_model_probability(price)
+                prob, = [estimate_model_probability(price)]
                 ev, mpct, ipct = calc_ev(prob, price)
 
                 bets.append({
@@ -176,19 +179,21 @@ def login_section():
                 else:
                     creds[user] = pwd
                     st.success("Account created and logged in!")
-                    st.session_state.logged_in  = True
-                    st.session_state.username   = user
+                    st.session_state.logged_in = True
+                    st.session_state.username  = user
             else:
                 if user in creds and creds[user] == pwd:
                     st.success("Logged in successfully!")
-                    st.session_state.logged_in  = True
-                    st.session_state.username   = user
+                    st.session_state.logged_in = True
+                    st.session_state.username  = user
                 else:
                     st.error("Invalid credentials.")
 
-# ---------- POST BETS FORM ----------
+# ---------- POST BETS FORM (with Delete) ----------
 def post_bets_section():
     st.subheader(f"📝 Post a Bet — {st.session_state.username}")
+
+    # Bet submission form
     with st.form("bet_form"):
         game    = st.text_input("Game", placeholder="e.g. OKC vs IND")
         btype   = st.selectbox("Bet Type", ["Points","Rebounds","Assists","Parlay","Other"])
@@ -198,17 +203,25 @@ def post_bets_section():
 
         if submit:
             st.session_state.user_bets.append({
-                "User":    st.session_state.username,
-                "Game":    game,
-                "Bet Type":btype,
-                "Odds":    odds_in,
-                "Stake":   stake
+                "User":     st.session_state.username,
+                "Game":     game,
+                "Bet Type": btype,
+                "Odds":     odds_in,
+                "Stake":    stake
             })
             st.success("Bet submitted!")
 
+    # Display and delete existing bets
     if st.session_state.user_bets:
         st.markdown("#### Your Session Bets")
-        st.dataframe(pd.DataFrame(st.session_state.user_bets))
+        for idx, bet in enumerate(st.session_state.user_bets):
+            col1, col2 = st.columns([8, 1])
+            col1.write(
+                f"**{bet['Game']}** — {bet['Bet Type']} @ {bet['Odds']} — ${bet['Stake']}"
+            )
+            if col2.button("Delete", key=f"del_{idx}"):
+                st.session_state.user_bets.pop(idx)
+                st.experimental_rerun()
 
 # ---------- MAIN TABS ----------
 tab1, tab2 = st.tabs(["📊 Dashboard", "📝 Post Bets"])
