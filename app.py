@@ -50,13 +50,12 @@ body {
 # ---------- LOGO BANNER ----------
 NBA_LOGOS = [
     "https://loodibee.com/wp-content/uploads/nba-atlanta-hawks-logo.png",
-    "https://loodibee.com/wp-content/uploads/nba-boston-celtics-logo.png",
-    # ... (all the rest of your logos) ...
+    # … all your other logos …
     "https://loodibee.com/wp-content/uploads/nba-washington-wizards-logo.png"
 ]
 st.markdown(f"""
 <div class="banner">
-  {''.join([f'<img src="{logo}">' for logo in NBA_LOGOS])}
+  {''.join(f'<img src=\"{logo}\">' for logo in NBA_LOGOS)}
 </div>
 """, unsafe_allow_html=True)
 
@@ -71,25 +70,24 @@ if "username" not in st.session_state:
 if "user_bets" not in st.session_state:
     st.session_state.user_bets = []
 if "credentials" not in st.session_state:
-    # two test accounts; users can also sign up in-session
     st.session_state.credentials = {"user1": "password1", "user2": "password2"}
 
-# ---------- SAMPLE FALLBACK DATA ----------
+# ---------- SAMPLE FALLBACK GAME ----------
 SAMPLE_GAME = [{
     "home_team": "Lakers",
-    "teams": ["Lakers", "Warriors"],
+    "away_team": "Warriors",
     "bookmakers": [{
         "markets": [{
             "key": "spreads",
             "outcomes": [
                 {"name": "Lakers", "price": -110},
-                {"name": "Warriors", "price": 100}
+                {"name": "Warriors", "price": +100}
             ]
         }]
     }]
 }]
 
-# ---------- FETCH ODDS (WITH CACHE) ----------
+# ---------- FETCH ODDS ----------
 @st.cache_data(show_spinner=False)
 def fetch_odds():
     url = "https://api.the-odds-api.com/v4/sports/basketball_nba/odds"
@@ -100,24 +98,21 @@ def fetch_odds():
         "oddsFormat": "american"
     }
     try:
-        res = requests.get(url, params=params)
-        res.raise_for_status()
-        return res.json()
+        resp = requests.get(url, params=params)
+        resp.raise_for_status()
+        return resp.json()
     except Exception as e:
-        st.error(f"API error: {e}")
+        st.error(f"Odds API error: {e}")
         return []
 
-# ---------- PULL RAW DATA & DEBUG ----------
 raw_data = fetch_odds()
-st.write("🔍 Raw API data preview:", raw_data[:2])  # show first two entries
-
 if not raw_data:
-    st.warning("⚠️ Odds API returned no games. Switching to sample data.")
+    st.warning("⚠️ API returned no games — using a sample fallback.")
     raw_data = SAMPLE_GAME
 else:
-    st.success(f"✅ Retrieved {len(raw_data)} games from the API.")
+    st.success(f"✅ Retrieved {len(raw_data)} games.")
 
-# ---------- UTILS: MODEL PROB & EV CALC ----------
+# ---------- MODEL PROBABILITY & EV FUNCTIONS ----------
 def estimate_model_probability(odds):
     try:
         return round(1 / (1 + 10 ** (-odds / 400)), 4)
@@ -125,110 +120,89 @@ def estimate_model_probability(odds):
         return 0.5
 
 def calc_ev(prob_model, odds):
-    implied_prob = (100 / (100 + odds)) if odds > 0 else (abs(odds) / (100 + abs(odds)))
+    implied = (100 / (100 + odds)) if odds > 0 else (abs(odds) / (100 + abs(odds)))
     ev = (prob_model * (odds if odds > 0 else 100)) - ((1 - prob_model) * 100)
-    return round(ev, 2), round(prob_model * 100, 1), round(implied_prob * 100, 1)
+    return round(ev, 2), round(prob_model * 100, 1), round(implied * 100, 1)
 
-# ---------- BUILD BETS LIST ----------
+# ---------- BUILD BETS DATAFRAME ----------
 bets = []
 today = datetime.today().strftime("%Y-%m-%d")
 
 for game in raw_data:
     home = game.get("home_team")
-    teams = game.get("teams", [])
-    if not teams or home not in teams or len(teams) != 2:
+    away = game.get("away_team")
+    if not home or not away:
         continue
-    away = [t for t in teams if t != home][0]
     matchup = f"{away} @ {home}"
+
     for book in game.get("bookmakers", []):
         for market in book.get("markets", []):
             for outcome in market.get("outcomes", []):
-                name = outcome.get("name")
+                name  = outcome.get("name")
                 price = outcome.get("price")
                 if price is None:
                     continue
-                prob = estimate_model_probability(price)
-                ev, model_pct, implied_pct = calc_ev(prob, price)
-                bets.append({
-                    "Date": today,
-                    "Matchup": matchup,
-                    "Team": name,
-                    "Market": market["key"],
-                    "Odds": price,
-                    "Model Prob (%)": model_pct,
-                    "EV (%)": ev,
-                    "Implied (%)": implied_pct
-                })
 
-# ---------- FALLBACK IF PARSE YIELDS NOTHING ----------
-if not bets:
-    st.warning("⚠️ No bets parsed from API data. Rebuilding from sample data.")
-    bets = []
-    for game in SAMPLE_GAME:
-        home = game["home_team"]
-        away = [t for t in game["teams"] if t != home][0]
-        matchup = f"{away} @ {home}"
-        for m in game["bookmakers"][0]["markets"]:
-            for o in m["outcomes"]:
-                prob = estimate_model_probability(o["price"])
-                ev, m_pct, i_pct = calc_ev(prob, o["price"])
+                prob     = estimate_model_probability(price)
+                ev, mpct, ipct = calc_ev(prob, price)
+
                 bets.append({
-                    "Date": today,
-                    "Matchup": matchup,
-                    "Team": o["name"],
-                    "Market": m["key"],
-                    "Odds": o["price"],
-                    "Model Prob (%)": m_pct,
-                    "EV (%)": ev,
-                    "Implied (%)": i_pct
+                    "Date":       today,
+                    "Matchup":    matchup,
+                    "Team":       name,
+                    "Market":     market["key"],
+                    "Odds":       price,
+                    "Model %":    mpct,
+                    "EV %":       ev,
+                    "Implied %":  ipct
                 })
 
 df = pd.DataFrame(bets)
-st.write("📊 Parsed bets DataFrame:", df)
 
-# ---------- LOGIN / SIGN-UP TAB ----------
+# ---------- LOGIN / SIGN-UP FORM ----------
 def login_section():
     st.subheader("🔐 Login or Sign Up")
     with st.form("login_form"):
-        user = st.text_input("Username")
-        pwd = st.text_input("Password", type="password")
+        user   = st.text_input("Username")
+        pwd    = st.text_input("Password", type="password")
         create = st.checkbox("Create new account?")
-        ok = st.form_submit_button("Submit")
+        go     = st.form_submit_button("Submit")
 
-        if ok:
+        if go:
             creds = st.session_state.credentials
             if create:
                 if user in creds:
-                    st.error("Username already exists.")
+                    st.error("That username is already taken.")
                 else:
                     creds[user] = pwd
-                    st.success("Account created & logged in!")
-                    st.session_state.logged_in = True
-                    st.session_state.username = user
+                    st.success("Account created and logged in!")
+                    st.session_state.logged_in  = True
+                    st.session_state.username   = user
             else:
                 if user in creds and creds[user] == pwd:
-                    st.success("Successfully logged in!")
-                    st.session_state.logged_in = True
-                    st.session_state.username = user
+                    st.success("Logged in successfully!")
+                    st.session_state.logged_in  = True
+                    st.session_state.username   = user
                 else:
                     st.error("Invalid credentials.")
 
-# ---------- POST BETS TAB ----------
+# ---------- POST BETS FORM ----------
 def post_bets_section():
     st.subheader(f"📝 Post a Bet — {st.session_state.username}")
     with st.form("bet_form"):
-        game = st.text_input("Game", placeholder="e.g. OKC vs IND")
-        btype = st.selectbox("Bet Type", ["Points", "Rebounds", "Assists", "Parlay", "Other"])
-        odds = st.text_input("Odds (e.g. +250 or -110)")
-        stake = st.number_input("Stake ($)", min_value=0.0, step=1.0)
-        go = st.form_submit_button("Submit Bet")
-        if go:
+        game    = st.text_input("Game", placeholder="e.g. OKC vs IND")
+        btype   = st.selectbox("Bet Type", ["Points","Rebounds","Assists","Parlay","Other"])
+        odds_in = st.text_input("Odds (e.g. +250 or -110)")
+        stake   = st.number_input("Stake ($)", min_value=0.0, step=1.0)
+        submit  = st.form_submit_button("Submit Bet")
+
+        if submit:
             st.session_state.user_bets.append({
-                "User": st.session_state.username,
-                "Game": game,
-                "Bet Type": btype,
-                "Odds": odds,
-                "Stake": stake
+                "User":    st.session_state.username,
+                "Game":    game,
+                "Bet Type":btype,
+                "Odds":    odds_in,
+                "Stake":   stake
             })
             st.success("Bet submitted!")
 
@@ -241,34 +215,35 @@ tab1, tab2 = st.tabs(["📊 Dashboard", "📝 Post Bets"])
 
 with tab1:
     if df.empty:
-        st.warning("No betting data available.")
+        st.warning("No bets to display.")
     else:
         st.markdown("<div class='section'><h3>🎛️ Filters</h3>", unsafe_allow_html=True)
-        ev_cut = st.slider("Minimum EV (%)", -100, 100, -100)
-        df_filt = df[df["EV (%)"] >= ev_cut]
+        ev_cut = st.slider("Minimum EV %", -100, 100, -100)
+        df_f   = df[df["EV %"] >= ev_cut]
         st.markdown("</div>", unsafe_allow_html=True)
 
-        if df_filt.empty:
-            st.info("No bets matched your EV filter.")
+        if df_f.empty:
+            st.info("No bets match that filter.")
         else:
             c1, c2 = st.columns(2)
             with c1:
                 st.markdown("<div class='section'><h3>📈 EV Distribution</h3>", unsafe_allow_html=True)
                 fig, ax = plt.subplots()
-                df_filt["EV (%)"].hist(ax=ax, bins=10)
-                ax.set_xlabel("EV (%)")
+                df_f["EV %"].hist(ax=ax, bins=15)
+                ax.set_xlabel("EV %")
                 ax.set_ylabel("Frequency")
                 st.pyplot(fig)
                 st.markdown("</div>", unsafe_allow_html=True)
+
             with c2:
                 st.markdown("<div class='section'><h3>🔥 Top Picks</h3>", unsafe_allow_html=True)
-                top5 = df_filt.sort_values("EV (%)", ascending=False).head(5)
-                st.dataframe(top5[["Matchup", "Team", "Odds", "EV (%)"]], use_container_width=True)
+                top5 = df_f.sort_values("EV %", ascending=False).head(5)
+                st.dataframe(top5[["Matchup","Team","Odds","EV %"]], use_container_width=True)
                 st.markdown("</div>", unsafe_allow_html=True)
 
             st.markdown("<div class='section'><h3>📥 Full Table</h3>", unsafe_allow_html=True)
-            st.dataframe(df_filt, use_container_width=True)
-            st.download_button("Download CSV", df_filt.to_csv(index=False), "bets.csv")
+            st.dataframe(df_f, use_container_width=True)
+            st.download_button("Download CSV", df_f.to_csv(index=False), "bets.csv")
             st.markdown("</div>", unsafe_allow_html=True)
 
 with tab2:
