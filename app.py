@@ -6,7 +6,7 @@ from datetime import datetime
 
 st.set_page_config(page_title="NBA Betting Insights", layout="wide")
 
-API_KEY = "3d4eabb1db321b1add71a25189a77697"  # ✅ Replace with your actual key
+API_KEY = "3d4eabb1db321b1add71a25189a77697"  # 🔐 Replace with your actual API key
 
 # ---------- STYLES ----------
 st.markdown("""
@@ -45,7 +45,7 @@ body {
 </style>
 """, unsafe_allow_html=True)
 
-# ---------- NBA Logos Banner ----------
+# ---------- LOGOS ----------
 NBA_LOGOS = [
     "https://loodibee.com/wp-content/uploads/nba-atlanta-hawks-logo.png",
     "https://loodibee.com/wp-content/uploads/nba-boston-celtics-logo.png",
@@ -84,10 +84,10 @@ st.markdown(f"""
 </div>
 """, unsafe_allow_html=True)
 
-# ---------- Header ----------
+# ---------- HEADER ----------
 st.markdown("<h1 style='text-align:center;'>NBA Betting Insights Dashboard</h1>", unsafe_allow_html=True)
 
-# ---------- Session State Setup ----------
+# ---------- SESSION STATE ----------
 if "logged_in" not in st.session_state:
     st.session_state.logged_in = False
 if "username" not in st.session_state:
@@ -100,7 +100,7 @@ if "credentials" not in st.session_state:
         "user2": "password2"
     }
 
-# ---------- API Request ----------
+# ---------- API FETCH ----------
 @st.cache_data(show_spinner=False)
 def fetch_odds():
     url = "https://api.the-odds-api.com/v4/sports/basketball_nba/odds"
@@ -118,7 +118,23 @@ def fetch_odds():
         st.error(f"API error: {e}")
         return []
 
-# ---------- Math Logic ----------
+raw_data = fetch_odds()
+if not raw_data:
+    st.warning("Odds API returned no data. Showing sample fallback.")
+    raw_data = [{
+        "home_team": "Lakers",
+        "teams": ["Lakers", "Warriors"],
+        "bookmakers": [{
+            "markets": [{
+                "key": "spreads",
+                "outcomes": [{"name": "Lakers", "price": -110}, {"name": "Warriors", "price": 100}]
+            }]
+        }]
+    }]
+else:
+    st.success(f"✅ Retrieved {len(raw_data)} games.")
+
+# ---------- MATH UTILS ----------
 def estimate_model_probability(odds):
     try:
         return round(1 / (1 + 10 ** (-odds / 400)), 4)
@@ -130,60 +146,7 @@ def calc_ev(prob_model, odds):
     ev = (prob_model * (odds if odds > 0 else 100)) - ((1 - prob_model) * 100)
     return round(ev, 2), round(prob_model * 100, 1), round(implied_prob * 100, 1)
 
-# ---------- Login ----------
-def login_section():
-    st.subheader("Login or Sign Up")
-    with st.form("login_form"):
-        username = st.text_input("Username")
-        password = st.text_input("Password", type="password")
-        new_user = st.checkbox("Create new account?")
-        submitted = st.form_submit_button("Submit")
-
-        if submitted:
-            if new_user:
-                if username in st.session_state.credentials:
-                    st.error("Username already taken.")
-                else:
-                    st.session_state.credentials[username] = password
-                    st.success("Account created. You are now logged in.")
-                    st.session_state.logged_in = True
-                    st.session_state.username = username
-            else:
-                if (
-                    username in st.session_state.credentials and
-                    st.session_state.credentials[username] == password
-                ):
-                    st.success("Logged in successfully!")
-                    st.session_state.logged_in = True
-                    st.session_state.username = username
-                else:
-                    st.error("Invalid credentials.")
-
-# ---------- Post Bets ----------
-def post_bets_section():
-    st.subheader(f"Post a Bet ({st.session_state.username})")
-    with st.form("bet_form"):
-        game = st.text_input("Game", placeholder="e.g. OKC vs IND")
-        bet_type = st.selectbox("Bet Type", ["Points", "Rebounds", "Assists", "Parlay", "Other"])
-        odds = st.text_input("Odds (e.g. +250 or -110)")
-        stake = st.number_input("Stake ($)", min_value=0.0, step=1.0)
-        submit_bet = st.form_submit_button("Submit Bet")
-        if submit_bet:
-            st.session_state.user_bets.append({
-                "User": st.session_state.username,
-                "Game": game,
-                "Type": bet_type,
-                "Odds": odds,
-                "Stake": stake
-            })
-            st.success("Bet submitted!")
-
-    if st.session_state.user_bets:
-        st.markdown("### Your Bets")
-        st.dataframe(pd.DataFrame(st.session_state.user_bets))
-
-# ---------- Fetch Odds & Create DataFrame ----------
-raw_data = fetch_odds()
+# ---------- BUILD BETS DATAFRAME ----------
 bets = []
 today = datetime.today().strftime("%Y-%m-%d")
 
@@ -215,42 +178,97 @@ for game in raw_data:
                 })
 
 df = pd.DataFrame(bets)
+st.write("📊 Sample of Data:", df.head())
+
+# ---------- LOGIN ----------
+def login_section():
+    st.subheader("Login or Sign Up")
+    with st.form("login_form"):
+        username = st.text_input("Username")
+        password = st.text_input("Password", type="password")
+        new_user = st.checkbox("Create new account?")
+        submitted = st.form_submit_button("Submit")
+
+        if submitted:
+            if new_user:
+                if username in st.session_state.credentials:
+                    st.error("Username already taken.")
+                else:
+                    st.session_state.credentials[username] = password
+                    st.success("Account created. You are now logged in.")
+                    st.session_state.logged_in = True
+                    st.session_state.username = username
+            else:
+                if (
+                    username in st.session_state.credentials and
+                    st.session_state.credentials[username] == password
+                ):
+                    st.success("Logged in successfully!")
+                    st.session_state.logged_in = True
+                    st.session_state.username = username
+                else:
+                    st.error("Invalid credentials.")
+
+# ---------- POST BETS ----------
+def post_bets_section():
+    st.subheader(f"Post a Bet ({st.session_state.username})")
+    with st.form("bet_form"):
+        game = st.text_input("Game", placeholder="e.g. OKC vs IND")
+        bet_type = st.selectbox("Bet Type", ["Points", "Rebounds", "Assists", "Parlay", "Other"])
+        odds = st.text_input("Odds (e.g. +250 or -110)")
+        stake = st.number_input("Stake ($)", min_value=0.0, step=1.0)
+        submit_bet = st.form_submit_button("Submit Bet")
+        if submit_bet:
+            st.session_state.user_bets.append({
+                "User": st.session_state.username,
+                "Game": game,
+                "Type": bet_type,
+                "Odds": odds,
+                "Stake": stake
+            })
+            st.success("Bet submitted!")
+
+    if st.session_state.user_bets:
+        st.markdown("### Your Bets")
+        st.dataframe(pd.DataFrame(st.session_state.user_bets))
 
 # ---------- TABS ----------
 tab1, tab2 = st.tabs(["📊 Dashboard", "📝 Post Bets"])
 
 with tab1:
     if df.empty:
-        st.warning("No betting data available. Check your API key or try again later.")
-        st.info("To test your app, you can temporarily insert mock data.")
+        st.warning("No betting data available.")
     else:
         st.markdown("<div class='section'><h3>⚙️ Filter Settings</h3>", unsafe_allow_html=True)
         ev_cutoff = st.slider("Minimum Expected Value (%)", -100, 100, -100)
         df = df[df["EV%"] >= ev_cutoff]
         st.markdown("</div>", unsafe_allow_html=True)
 
-        col1, col2 = st.columns(2)
+        if df.empty:
+            st.info("No bets matched the filters or EV threshold.")
+        else:
+            col1, col2 = st.columns(2)
 
-        with col1:
-            st.markdown("<div class='section'><h3>📊 EV% Histogram</h3>", unsafe_allow_html=True)
-            fig, ax = plt.subplots()
-            df["EV%"].hist(ax=ax, bins=15, color="#FFDF00")
-            ax.set_title("Expected Value Histogram")
-            ax.set_xlabel("EV%")
-            ax.set_ylabel("Frequency")
-            st.pyplot(fig)
+            with col1:
+                st.markdown("<div class='section'><h3>📊 EV% Histogram</h3>", unsafe_allow_html=True)
+                fig, ax = plt.subplots()
+                df["EV%"].hist(ax=ax, bins=15, color="#FFDF00")
+                ax.set_title("Expected Value Histogram")
+                ax.set_xlabel("EV%")
+                ax.set_ylabel("Frequency")
+                st.pyplot(fig)
+                st.markdown("</div>", unsafe_allow_html=True)
+
+            with col2:
+                st.markdown("<div class='section'><h3>📈 Top Picks</h3>", unsafe_allow_html=True)
+                top_bets = df.sort_values("EV%", ascending=False).head(5)
+                st.dataframe(top_bets[["Matchup", "Team", "Market", "Odds", "EV%"]], use_container_width=True)
+                st.markdown("</div>", unsafe_allow_html=True)
+
+            st.markdown("<div class='section'><h3>📥 Full Data</h3>", unsafe_allow_html=True)
+            st.dataframe(df, use_container_width=True)
+            st.download_button("Download CSV", df.to_csv(index=False), "nba_model_bets.csv")
             st.markdown("</div>", unsafe_allow_html=True)
-
-        with col2:
-            st.markdown("<div class='section'><h3>📈 Top Picks</h3>", unsafe_allow_html=True)
-            top_bets = df.sort_values("EV%", ascending=False).head(5)
-            st.dataframe(top_bets[["Matchup", "Team", "Market", "Odds", "EV%"]], use_container_width=True)
-            st.markdown("</div>", unsafe_allow_html=True)
-
-        st.markdown("<div class='section'><h3>📥 Full Data</h3>", unsafe_allow_html=True)
-        st.dataframe(df, use_container_width=True)
-        st.download_button("Download CSV", df.to_csv(index=False), "nba_model_bets.csv")
-        st.markdown("</div>", unsafe_allow_html=True)
 
 with tab2:
     if not st.session_state.logged_in:
