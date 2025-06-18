@@ -22,20 +22,27 @@ st.markdown(
         color: #00ff88;
         padding-top: 2rem;
     }
-    .css-hi6a2p { /* nav item container */
-        color: #ccc;
+    /* Nav item container: lighten text for readability */
+    .css-hi6a2p {
+        color: #e0e0e0 !important;
         padding: 0.5rem 1rem;
         font-size: 1rem;
     }
     .css-hi6a2p:hover {
         background-color: #003300;
-        color: #00ff88;
+        color: #00ff88 !important;
     }
+    /* Title styling */
     .css-1d391kg .css-1v3fvcr {
         font-size: 1.5rem;
         font-weight: 700;
         margin-bottom: 1rem;
-        color: #00ff88;
+        color: #00ff88 !important;
+    }
+    /* Radio label color */
+    .css-10trblm label,
+    .css-10trblm {
+        color: #e0e0e0 !important;
     }
     </style>
     """,
@@ -53,12 +60,11 @@ page = st.sidebar.radio(
     format_func=lambda x: f"🎲 {x}" if x=="Dashboard" else f"📝 {x}"
 )
 
-# Force dark background
+# Force dark background on main pane
 st.markdown(
     """
     <style>
-    .css-1bd0h47 { background-color: #000000 !important; }
-    .css-18ni7ap { background-color: #000000 !important; }
+    .css-1bd0h47, .css-18ni7ap { background-color: #000000 !important; }
     </style>
     """,
     unsafe_allow_html=True
@@ -79,7 +85,6 @@ def fetch_odds():
     r.raise_for_status()
     return r.json()
 
-# Try fetching or fallback
 try:
     raw = fetch_odds()
     st.success(f"✅ Retrieved {len(raw)} games")
@@ -96,24 +101,21 @@ for g in raw:
     home, away = g.get("home_team"), g.get("away_team")
     if not home or not away: continue
     matchup = f"{away} @ {home}"
-    for b in g.get("bookmakers",[]):
-        for mk in b.get("markets",[]):
-            for o in mk.get("outcomes",[]):
+    for b in g.get("bookmakers", []):
+        for mk in b.get("markets", []):
+            for o in mk.get("outcomes", []):
                 price = o.get("price")
                 if price is None: continue
-                p = prob(price)
-                ev, mp, ip = ev_calc(p, price)
+                ev, mp, ip = ev_calc(prob(price), price)
                 rows.append({"Date": date, "Matchup": matchup, "Team": o["name"], "Market": mk["key"], "Odds": price, "EV%": ev})
 df = pd.DataFrame(rows)
 
-# -----------------------
-# --- Session State ----
-# -----------------------
+# Session state
 if "logged_in" not in st.session_state: st.session_state.logged_in=False
 if "user_bets" not in st.session_state: st.session_state.user_bets=[]
 
 # -----------------------
-# --- Dashboard View ---
+# --- Dashboard --------
 # -----------------------
 if page == "Dashboard":
     st.title("Dashboard")
@@ -130,10 +132,13 @@ if page == "Dashboard":
         st.markdown("---")
         st.subheader("Top Picks")
         for _, r in df2.sort_values("EV%", ascending=False).head(5).iterrows():
-            st.markdown(f"<div style='background:#111; padding:8px; margin:4px 0; border-left:4px solid #00ff88; color:#e0e0e0;'>{r['Matchup']} — {r['Odds']} ({r['EV%']}%)</div>", unsafe_allow_html=True)
+            st.markdown(
+                f"<div style='background:#111; padding:8px; margin:4px 0; border-left:4px solid #00ff88; color:#e0e0e0;'>{r['Matchup']} — {r['Odds']} ({r['EV%']}%)</div>",
+                unsafe_allow_html=True
+            )
 
 # -----------------------
-# --- Post Bets View ---
+# --- Post Bets --------
 # -----------------------
 elif page == "Post Bets":
     st.title("Post Bets")
