@@ -57,29 +57,30 @@ page = st.sidebar.radio("", ["Dashboard", "Post Bets"], index=0,
 # -----------------------
 banner_css = '''
 <style>
+/* Banner styling: absolute top, above all */
 .banner {
-  position: fixed;
-  top: 0;
+  position: absolute !important;
+  top: 0 !important;
   left: 0;
   width: 100%;
-  height: 40px;
-  background-color: #000;
-  overflow: hidden;
-  display: flex;
-  align-items: center;
-  z-index: 9999;
+  height: 50px !important;
+  background-color: #000 !important;
+  overflow: hidden !important;
+  display: flex !important;
+  align-items: center !important;
+  z-index: 2000 !important;
 }
 .banner img {
-  height: 32px;
-  margin: 0 12px;
-  animation: scroll 25s linear infinite;
+  height: 40px !important;
+  margin: 0 8px !important;
+  animation: scroll 20s linear infinite !important;
 }
 @keyframes scroll {
   0% { transform: translateX(100%); }
   100% { transform: translateX(-100%); }
 }
 .content-wrapper {
-  padding-top: 56px; /* banner height + small gap */
+  padding-top: 60px !important; /* account for banner height */
   padding-left: 16px;
   padding-right: 16px;
 }
@@ -103,7 +104,7 @@ st.markdown('<div class="content-wrapper">', unsafe_allow_html=True)
 # -----------------------
 # --- Data Fetching ----
 # -----------------------
-API_KEY = os.getenv("ODDS_API_KEY", "3d4eabb1db321b1add71a25189a77697")
+API_KEY = os.getenv("ODDS_API_KEY", 3d4eabb1db321b1add71a25189a77697")
 
 @st.cache_data
 def fetch_odds():
