@@ -50,13 +50,13 @@ body {
   margin: 0; padding: 0;
 }
 
-/* Banner at top */
+/* Banner at top (smaller) */
 .banner {
   position: fixed;
   top: 50px; /* below Streamlit cloud bar */
   left: 0;
   width: 100%;
-  height: 50px; /* reduced height */
+  height: 20px; /* much smaller banner height */
   background-color: var(--bg-light);
   overflow: hidden;
   display: flex;
@@ -64,8 +64,8 @@ body {
   z-index: 10000;
 }
 .banner img {
-  height: 40px; /* smaller icons */
-  margin: 0 16px;
+  height: 16px; /* very small icons */
+  margin: 0 8px;
   animation: scroll 20s linear infinite;
 }
 @keyframes scroll {
@@ -75,7 +75,7 @@ body {
 
 /* Push content below banner */
 .content-wrapper {
-  padding-top: 110px; /* banner height + offset */
+  padding-top: 80px; /* adjust for smaller banner */
   padding-left: 16px;
   padding-right: 16px;
 }
@@ -127,5 +127,5 @@ st.markdown('<div class="content-wrapper">', unsafe_allow_html=True)
 
 st.markdown("<h1 style='text-align:center;'>NBA Betting Insights Dashboard</h1>", unsafe_allow_html=True)
 
-# Remaining app code unchanged...
-# (login forms, betting logic, data fetching, etc.)
+# (Rest of your app code: login, data fetch, dashboard, etc.)
+
