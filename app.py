@@ -17,34 +17,38 @@ dark_mode = True  # force dark theme
 # -----------------------
 sidebar_css = '''
 <style>
+/* Remove default top header and footer */
+#MainMenu, header, footer { visibility: hidden !important; }
+
 /* Sidebar styling */
 [data-testid="stSidebar"] {
-    background-color: #111111;
-    color: #e0e0e0;
+    background-color: #000000;
+    color: #00ff88;
     padding-top: 2rem;
 }
-/* Title styling */
+/* Sidebar title */
 [data-testid="stSidebar"] .css-1d391kg .css-1v3fvcr {
-    font-size: 1.5rem;
+    font-size: 1.75rem;
     font-weight: 700;
     color: #00ff88 !important;
-    padding-left: 1rem;
+    text-align: center;
+    padding: 0.5rem 0;
 }
-/* Nav label styling */
-[data-testid="stSidebar"] .stRadio > label,
-[data-testid="stSidebar"] .stRadio {
-    color: #e0e0e0 !important;
-}
+/* Nav labels: bigger, green, centered */
 [data-testid="stSidebar"] .stRadio > div {
-    padding: 0.5rem 1rem;
+    font-size: 1.25rem;
+    color: #00ff88 !important;
+    text-align: center;
+    padding: 0.75rem 1rem;
     border-radius: 4px;
+    margin: 0.25rem 0;
 }
 [data-testid="stSidebar"] .stRadio > div:hover {
     background-color: #003300;
-    color: #00ff88 !important;
 }
 </style>
 '''
+
 st.markdown(sidebar_css, unsafe_allow_html=True)
 
 # Sidebar content
@@ -104,7 +108,7 @@ st.markdown('<div class="content-wrapper">', unsafe_allow_html=True)
 # -----------------------
 # --- Data Fetching ----
 # -----------------------
-API_KEY = os.getenv("ODDS_API_KEY", 3d4eabb1db321b1add71a25189a77697")
+API_KEY = os.getenv("ODDS_API_KEY", "3d4eabb1db321b1add71a25189a77697")
 
 @st.cache_data
 def fetch_odds():
