@@ -19,7 +19,6 @@ dark_mode = theme == "Dark"
 # -----------------------
 # --- API Key ----------
 # -----------------------
-# Replace with your key or set via environment variable 'ODDS_API_KEY'
 API_KEY = os.getenv("ODDS_API_KEY", "3d4eabb1db321b1add71a25189a77697")
 
 # -----------------------
@@ -28,6 +27,11 @@ API_KEY = os.getenv("ODDS_API_KEY", "3d4eabb1db321b1add71a25189a77697")
 st.markdown("""
 <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@400;500;700&display=swap" rel="stylesheet">
 <style>
+/* Hide default Streamlit header/footer/menu */
+#MainMenu {visibility: hidden;} 
+footer {visibility: hidden;} 
+header {visibility: hidden;}
+
 :root {
   --bg-light: #f4f6fa;
   --bg-dark:  #1e1e1e;
@@ -45,30 +49,35 @@ body {
   color: var(--text-dark) !important;
   margin: 0; padding: 0;
 }
+
 .banner {
   position: fixed;
   top: 0;
   left: 0;
   width: 100%;
-  height: 80px;
+  height: 100px;
   background-color: var(--bg-light);
   overflow: hidden;
   display: flex;
   align-items: center;
-  z-index: 100;
+  z-index: 9999;
 }
 .banner img {
-  height: 60px;
-  margin: 0 20px;
+  height: 80px;
+  margin: 0 24px;
   animation: scroll 30s linear infinite;
 }
 @keyframes scroll {
   0% { transform: translateX(100%); }
   100% { transform: translateX(-100%); }
 }
+
 .content-wrapper {
-  padding-top: 100px; /* leave space for fixed banner */
+  padding-top: 120px; /* increased to account for fixed banner */
+  padding-left: 16px;
+  padding-right: 16px;
 }
+
 .section {
   background: linear-gradient(135deg, var(--accent-start), var(--accent-end));
   border-radius: 16px;
@@ -76,14 +85,19 @@ body {
   margin: 16px 0;
   color: var(--highlight);
   box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+  transition: box-shadow 0.3s;
 }
+.section:hover {
+  box-shadow: 0 8px 24px rgba(0,0,0,0.2);
+}
+
 .bet-card {
   background: var(--card-bg-light);
   border-radius: 12px;
   padding: 16px;
   margin-bottom: 12px;
   box-shadow: 0 2px 8px rgba(0,0,0,0.1);
-  transition: transform 0.2s ease, box-shadow 0.2s ease;
+  transition: transform 0.2s, box-shadow 0.2s;
 }
 .bet-card:hover {
   transform: translateY(-4px);
@@ -98,7 +112,7 @@ body {
 NBA_LOGOS = [
     "https://loodibee.com/wp-content/uploads/nba-atlanta-hawks-logo.png",
     "https://loodibee.com/wp-content/uploads/nba-boston-celtics-logo.png",
-    # ... add the rest of your 30 logo URLs ...
+    # ... include all 30 logos ...
     "https://loodibee.com/wp-content/uploads/nba-washington-wizards-logo.png"
 ]
 html_banner = '<div class="banner">' + ''.join(f'<img src="{url}" />' for url in NBA_LOGOS) + '</div>'
@@ -120,7 +134,9 @@ if "user_bets" not in st.session_state:     st.session_state.user_bets = []
 if "credentials" not in st.session_state:
     st.session_state.credentials = {"user1": "password1", "user2": "password2"}
 
-# Sample fallback game
+# -----------------------
+# --- Sample Fallback --
+# -----------------------
 SAMPLE_GAME = [{
     "home_team": "Lakers",
     "away_team": "Warriors",
@@ -180,20 +196,13 @@ for g in raw:
                 if price is None: continue
                 p = estimate_prob(price)
                 ev, mp, ip = calc_ev(p, price)
-                rows.append({
-                    "Date": today,
-                    "Matchup": m,
-                    "Team": o["name"],
-                    "Market": mk["key"],
-                    "Odds": price,
-                    "Model %": mp,
-                    "EV %": ev,
-                    "Imp %": ip
-                })
+                rows.append({"Date": today, "Matchup": m, "Team": o["name"], "Market": mk["key"], "Odds": price, "Model %": mp, "EV %": ev, "Imp %": ip})
 
 df = pd.DataFrame(rows)
 
-# Login form
+# -----------------------
+# --- Login Form -------
+# -----------------------
 def login_form():
     st.subheader("🔐 Login or Sign Up")
     with st.form("login"):
@@ -205,20 +214,14 @@ def login_form():
             creds = st.session_state.credentials
             if c:
                 if u in creds: st.error("Username taken.")
-                else:
-                    creds[u] = p
-                    st.success("Created & logged in!")
-                    st.session_state.logged_in = True
-                    st.session_state.username = u
+                else: creds[u] = p; st.success("Created & logged in!"); st.session_state.logged_in=True; st.session_state.username=u
             else:
-                if creds.get(u) == p:
-                    st.success("Logged in!")
-                    st.session_state.logged_in = True
-                    st.session_state.username = u
-                else:
-                    st.error("Invalid credentials.")
+                if creds.get(u) == p: st.success("Logged in!"); st.session_state.logged_in=True; st.session_state.username=u
+                else: st.error("Invalid credentials.")
 
-# Bets form + delete
+# -----------------------
+# --- Bets Form -------
+# -----------------------
 def bets_form():
     st.subheader(f"📝 Post a Bet — {st.session_state.username}")
     with st.form("bet"):
@@ -227,48 +230,32 @@ def bets_form():
         od = st.text_input("Odds (e.g. +250 or -110)")
         stak = st.number_input("Stake ($)", 0.0, step=1.0)
         s = st.form_submit_button("Submit")
-        if s:
-            st.session_state.user_bets.append({"Game": g, "Type": bt, "Odds": od, "Stake": stak})
-            st.success("Bet added!")
-    for i, bet in enumerate(st.session_state.user_bets):
-        c1, c2 = st.columns([8, 1])
-        c1.markdown(
-            f"<div class='bet-card'><h4>{bet['Game']}</h4><p><strong>{bet['Type']}</strong> | Odds: {bet['Odds']} | Stake: ${bet['Stake']}</p></div>",
-            unsafe_allow_html=True
-        )
-        if c2.button("✕", key=f"del_{i}"):
-            st.session_state.user_bets.pop(i)
-            st.experimental_rerun()
+        if s: st.session_state.user_bets.append({"Game":g,"Type":bt,"Odds":od,"Stake":stak}); st.success("Bet added!")
+    for i,bet in enumerate(st.session_state.user_bets):
+        c1,c2 = st.columns([8,1])
+        c1.markdown(f"<div class='bet-card'><h4>{bet['Game']}</h4><p><strong>{bet['Type']}</strong> | Odds: {bet['Odds']} | Stake: ${bet['Stake']}</p></div>", unsafe_allow_html=True)
+        if c2.button("✕", key=f"del_{i}"): st.session_state.user_bets.pop(i); st.experimental_rerun()
 
-# Main tabs
-tab1, tab2 = st.tabs(["📊 Dashboard", "📝 Post Bets"])
+# -----------------------
+# --- Main Tabs -------
+# -----------------------
+tab1,tab2 = st.tabs(["📊 Dashboard","📝 Post Bets"])
 with tab1:
-    if df.empty:
-        st.warning("No bets to show.")
+    if df.empty: st.warning("No bets to show.")
     else:
         st.markdown("<div class='section'><h3>🎛 Filters</h3></div>", unsafe_allow_html=True)
         ev_min = st.slider("Minimum EV %", -100, 100, -100)
-        df2 = df[df["EV %"] >= ev_min]
-        fig = px.histogram(
-            df2,
-            x="EV %",
-            nbins=15,
-            title="EV% Distribution",
-            template="plotly_dark" if dark_mode else "plotly_white"
-        )
+        df2 = df[df["EV %"]>=ev_min]
+        fig = px.histogram(df2, x="EV %", nbins=15, title="EV% Distribution", template="plotly_dark" if dark_mode else "plotly_white")
         st.plotly_chart(fig, use_container_width=True)
         st.markdown("<div class='section'><h3>🔥 Top Picks</h3></div>", unsafe_allow_html=True)
-        for _, r in df2.sort_values("EV %", ascending=False).head(5).iterrows():
-            st.markdown(
-                f"<div class='bet-card'><h4>{r['Matchup']}</h4><p><strong>{r['Team']}</strong> | {r['Market']} | Odds: {r['Odds']} | EV%: {r['EV %']}</p></div>",
-                unsafe_allow_html=True
-            )
+        for _,r in df2.sort_values("EV %",ascending=False).head(5).iterrows():
+            st.markdown(f"<div class='bet-card'><h4>{r['Matchup']}</h4><p><strong>{r['Team']}</strong> | {r['Market']} | Odds: {r['Odds']} | EV%: {r['EV %']}</p></div>", unsafe_allow_html=True)
         st.markdown("<div class='section'><h3>📥 Full Table</h3></div>", unsafe_allow_html=True)
         st.dataframe(df2, use_container_width=True)
 with tab2:
-    if not st.session_state.logged_in:
-        login_form()
-    else:
-        bets_form()
+    if not st.session_state.logged_in: login_form()
+    else: bets_form()
 
 st.markdown('</div>', unsafe_allow_html=True)
+
