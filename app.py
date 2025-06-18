@@ -3,108 +3,93 @@
 import streamlit as st
 import requests
 import pandas as pd
-import plotly.express as px
+import matplotlib.pyplot as plt
 from datetime import datetime
 
-# -----------------------
-# --- Page & Theme -----
-# -----------------------
 st.set_page_config(page_title="NBA Betting Insights", layout="wide")
 
-theme = st.sidebar.radio("Select Theme", ["Light", "Dark"])
-dark_mode = theme == "Dark"
+API_KEY = "3d4eabb1db321b1add71a25189a77697"  # Replace with your actual API key
 
-# -----------------------
-# --- Global CSS -----
-# -----------------------
-css = f"""
+# --- STYLES ---
+st.markdown("""
 <style>
-body {{
-    background-color: {'#1e1e1e' if dark_mode else '#f4f6fa'} !important;
-    color: {'#ddd' if dark_mode else '#111'} !important;
-}}
-.section {{
-    background: linear-gradient(to right, {'#000' if dark_mode else '#001f3f'}, {'#222' if dark_mode else '#003366'});
+body {
+    background-color: #f4f6fa;
+}
+.section {
+    background: linear-gradient(to right, #001f3f, #003366);
+    border-radius: 20px;
+    padding: 20px;
+    margin: 20px 0;
+    color: white;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+}
+.section h3 {
     color: #FFDF00;
-    padding: 12px;
-    border-radius: 12px;
-    margin-bottom: 16px;
-}}
-.banner {{
-    background-color: {'#111' if dark_mode else '#e8f0ff'};
-    padding: 8px 0;
+    margin-bottom: 10px;
+}
+.banner {
+    background-color: #e8f0ff;
+    padding: 5px 0;
     overflow: hidden;
     white-space: nowrap;
-}}
-.banner img {{
-    height: 40px;
-    margin: 0 12px;
+}
+.banner img {
+    height: 30px;
+    margin: 0 10px;
     vertical-align: middle;
-    animation: scroll 20s linear infinite;
-}}
-@keyframes scroll {{
-  0% {{ transform: translateX(100%); }}
-  100% {{ transform: translateX(-100%); }}
-}}
-.bet-card {{
-    background: {'#333' if dark_mode else '#fff'};
-    border-radius: 12px;
-    padding: 12px;
-    margin-bottom: 12px;
-    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
-    color: {'#eee' if dark_mode else '#111'};
-}}
+    animation: scroll 60s linear infinite;
+}
+@keyframes scroll {
+  0% { transform: translateX(100%); }
+  100% { transform: translateX(-100%); }
+}
 </style>
-"""
-st.markdown(css, unsafe_allow_html=True)
+""", unsafe_allow_html=True)
 
-# -----------------------
-# --- Banner Logos -----
-# -----------------------
+# --- LOGO BANNER ---
 NBA_LOGOS = [
     "https://loodibee.com/wp-content/uploads/nba-atlanta-hawks-logo.png",
     "https://loodibee.com/wp-content/uploads/nba-boston-celtics-logo.png",
     "https://loodibee.com/wp-content/uploads/nba-brooklyn-nets-logo.png",
-    # … include the rest …
+    "https://loodibee.com/wp-content/uploads/nba-charlotte-hornets-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-chicago-bulls-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-cleveland-cavaliers-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-dallas-mavericks-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-denver-nuggets-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-detroit-pistons-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-golden-state-warriors-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-houston-rockets-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-indiana-pacers-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-la-clippers-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-la-lakers-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-memphis-grizzlies-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-miami-heat-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-milwaukee-bucks-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-minnesota-timberwolves-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-new-orleans-pelicans-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-new-york-knicks-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-oklahoma-city-thunder-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-orlando-magic-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-philadelphia-76ers-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-phoenix-suns-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-portland-trail-blazers-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-sacramento-kings-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-san-antonio-spurs-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-toronto-raptors-logo.png",
+    "https://loodibee.com/wp-content/uploads/nba-utah-jazz-logo.png",
     "https://loodibee.com/wp-content/uploads/nba-washington-wizards-logo.png"
 ]
-html_banner = '<div class="banner">' + ''.join(f'<img src="{url}" />' for url in NBA_LOGOS) + '</div>'
-st.markdown(html_banner, unsafe_allow_html=True)
+st.markdown(f"""
+<div class="banner">
+  {''.join([f'<img src="{logo}">' for logo in NBA_LOGOS])}
+</div>
+""", unsafe_allow_html=True)
 
-# -----------------------
-# --- Header -----------
-# -----------------------
+# --- HEADER ---
 st.markdown("<h1 style='text-align:center;'>NBA Betting Insights Dashboard</h1>", unsafe_allow_html=True)
 
-# -----------------------
-# --- Session State ----
-# -----------------------
-if "logged_in" not in st.session_state:      st.session_state.logged_in = False
-if "username" not in st.session_state:       st.session_state.username = ""
-if "user_bets" not in st.session_state:      st.session_state.user_bets = []
-if "credentials" not in st.session_state:
-    st.session_state.credentials = {"user1": "password1", "user2": "password2"}
-
-# -----------------------
-# --- Sample Fallback ---
-# -----------------------
-SAMPLE_GAME = [{
-    "home_team": "Lakers",
-    "away_team": "Warriors",
-    "bookmakers": [{
-        "markets": [{
-            "key": "spreads",
-            "outcomes": [
-                {"name": "Lakers", "price": -110},
-                {"name": "Warriors", "price": 100}
-            ]
-        }]
-    }]
-}]
-
-# -----------------------
-# --- Fetch Odds -------
-# -----------------------
+# --- API FETCH ---
 @st.cache_data(show_spinner=False)
 def fetch_odds():
     url = "https://api.the-odds-api.com/v4/sports/basketball_nba/odds"
@@ -115,152 +100,148 @@ def fetch_odds():
         "oddsFormat": "american"
     }
     try:
-        r = requests.get(url, params=params)
-        r.raise_for_status()
-        return r.json()
+        res = requests.get(url, params=params)
+        res.raise_for_status()
+        return res.json()
     except Exception as e:
-        st.error(f"Odds API error: {e}")
+        st.error(f"API error: {e}")
         return []
 
-# Make sure you set your API key
-API_KEY = "3d4eabb1db321b1add71a25189a77697"
+# --- MODEL LOGIC ---
+def estimate_model_probability(odds):
+    try:
+        return round(1 / (1 + 10 ** (-odds / 400)), 4)
+    except:
+        return 0.5
 
-raw = fetch_odds()
-if not raw:
-    st.warning("⚠️ API returned no games; using sample data.")
-    raw = SAMPLE_GAME
-else:
-    st.success(f"✅ Retrieved {len(raw)} games.")
+def calc_ev(prob_model, odds):
+    implied_prob = 100 / (100 + odds) if odds > 0 else abs(odds) / (100 + abs(odds))
+    ev = (prob_model * (odds if odds > 0 else 100)) - ((1 - prob_model) * 100)
+    return round(ev, 2), round(prob_model * 100, 1), round(implied_prob * 100, 1)
 
-# -----------------------
-# --- Compute EV -------
-# -----------------------
-def estimate_prob(o): return round(1 / (1 + 10**(-o / 400)), 4)
-def calc_ev(p, o):
-    imp = (100 / (100 + o)) if o > 0 else (abs(o) / (100 + abs(o)))
-    ev = p * (o if o > 0 else 100) - (1 - p) * 100
-    return round(ev, 2), round(p * 100, 1), round(imp * 100, 1)
-
-rows = []
+# --- FETCH DATA ---
+data = fetch_odds()
 today = datetime.today().strftime("%Y-%m-%d")
-for g in raw:
-    h, a = g.get("home_team"), g.get("away_team")
-    if not h or not a: continue
-    m = f"{a} @ {h}"
-    for b in g.get("bookmakers", []):
-        for mk in b.get("markets", []):
-            for o in mk.get("outcomes", []):
-                price = o.get("price")
-                if price is None: continue
-                p = estimate_prob(price)
-                ev, mp, ip = calc_ev(p, price)
-                rows.append({
+
+# --- BUILD DATAFRAME ---
+bets = []
+for game in data:
+    home = game.get("home_team")
+    teams = game.get("teams", [])
+    if not teams or home not in teams or len(teams) != 2:
+        continue
+    away = [team for team in teams if team != home][0]
+    matchup = f"{away} @ {home}"
+    for book in game.get("bookmakers", []):
+        for market in book.get("markets", []):
+            for outcome in market.get("outcomes", []):
+                team = outcome.get("name")
+                odds = outcome.get("price")
+                if odds is None:
+                    continue
+                model_prob = estimate_model_probability(odds)
+                ev, model_pct, implied_pct = calc_ev(model_prob, odds)
+                bets.append({
                     "Date": today,
-                    "Matchup": m,
-                    "Team": o["name"],
-                    "Market": mk["key"],
-                    "Odds": price,
-                    "Model %": mp,
-                    "EV %": ev,
-                    "Imp %": ip
+                    "Matchup": matchup,
+                    "Team": team,
+                    "Market": market["key"],
+                    "Odds": odds,
+                    "Model Prob": model_pct,
+                    "EV%": ev,
+                    "Implied": implied_pct
                 })
 
-df = pd.DataFrame(rows)
+# --- SESSION STATE ---
+if "logged_in" not in st.session_state:
+    st.session_state.logged_in = False
+if "username" not in st.session_state:
+    st.session_state.username = ""
+if "user_bets" not in st.session_state:
+    st.session_state.user_bets = []
 
-# -----------------------
-# --- Login Form -------
-# -----------------------
-def login_form():
-    st.subheader("🔐 Login or Sign Up")
-    with st.form("login"):
-        u = st.text_input("Username")
-        p = st.text_input("Password", type="password")
-        c = st.checkbox("Create account?")
-        go = st.form_submit_button("Go")
-        if go:
-            creds = st.session_state.credentials
-            if c:
-                if u in creds:
-                    st.error("Username taken.")
-                else:
-                    creds[u] = p
-                    st.success("Account created & logged in!")
-                    st.session_state.logged_in = True
-                    st.session_state.username = u
-            else:
-                if creds.get(u) == p:
-                    st.success("Logged in!")
-                    st.session_state.logged_in = True
-                    st.session_state.username = u
-                else:
-                    st.error("Invalid credentials.")
+# --- LOGIN FUNCTION ---
+def login_section():
+    st.subheader("Login")
+    username = st.text_input("Username")
+    password = st.text_input("Password", type="password")
+    if st.button("Login"):
+        credentials = {"user1": "password1", "user2": "password2"}
+        if username in credentials and credentials[username] == password:
+            st.session_state.logged_in = True
+            st.session_state.username = username
+            st.success("Successfully logged in!")
+        else:
+            st.error("Invalid login credentials.")
 
-# -----------------------
-# --- Bets Form --------
-# -----------------------
-def bets_form():
-    st.subheader(f"📝 Post a Bet — {st.session_state.username}")
-    with st.form("bet"):
-        g  = st.text_input("Game", placeholder="e.g. OKC vs IND")
-        bt = st.selectbox("Bet Type", ["Points","Rebounds","Assists","Parlay","Other"])
-        od = st.text_input("Odds (e.g. +250 or -110)")
-        stak = st.number_input("Stake ($)", min_value=0.0, step=1.0)
-        s = st.form_submit_button("Submit")
-        if s:
-            st.session_state.user_bets.append({"Game": g, "Type": bt, "Odds": od, "Stake": stak})
-            st.success("Bet added!")
+# --- POST BET FUNCTION ---
+def post_bets_section():
+    st.subheader(f"Post a Bet ({st.session_state.username})")
 
-    for i, bet in enumerate(st.session_state.user_bets):
-        c1, c2 = st.columns([8, 1])
-        c1.markdown(f"""
-            <div class="bet-card">
-              <h4>{bet['Game']}</h4>
-              <p><strong>{bet['Type']}</strong> | Odds: {bet['Odds']} | Stake: ${bet['Stake']}</p>
-            </div>
-        """, unsafe_allow_html=True)
-        if c2.button("✕", key=f"del_{i}"):
-            st.session_state.user_bets.pop(i)
-            st.experimental_rerun()
+    with st.form("bet_form"):
+        game = st.text_input("Game", placeholder="e.g. OKC vs IND")
+        bet_type = st.selectbox("Bet Type", ["Points", "Rebounds", "Assists", "Parlay", "Other"])
+        odds = st.text_input("Odds (e.g. +250 or -110)")
+        stake = st.number_input("Stake ($)", min_value=0.0, step=1.0)
+        submitted = st.form_submit_button("Submit Bet")
+        if submitted:
+            st.session_state.user_bets.append({
+                "User": st.session_state.username,
+                "Game": game,
+                "Type": bet_type,
+                "Odds": odds,
+                "Stake": stake
+            })
+            st.success("Bet submitted!")
 
-# -----------------------
-# --- Main Tabs --------
-# -----------------------
+    if st.session_state.user_bets:
+        st.markdown("### Your Submitted Bets")
+        df_bets = pd.DataFrame(st.session_state.user_bets)
+        st.dataframe(df_bets)
+
+# --- TABS ---
 tab1, tab2 = st.tabs(["📊 Dashboard", "📝 Post Bets"])
 
+# --- TAB 1: DASHBOARD ---
 with tab1:
-    if df.empty:
-        st.warning("No bets to show.")
+    if not bets:
+        st.warning("No betting data available.")
     else:
-        st.markdown("<div class='section'><h3>🎛 Filters</h3></div>", unsafe_allow_html=True)
-        ev_min = st.slider("Minimum EV %", -100, 100, -100)
-        df2    = df[df["EV %"] >= ev_min]
+        df = pd.DataFrame(bets)
+        st.markdown("<div class='section'><h3>⚙️ Filter Settings</h3>", unsafe_allow_html=True)
+        ev_cutoff = st.slider("Minimum Expected Value (%)", min_value=-100, max_value=100, value=-100)
+        df = df[df["EV%"] >= ev_cutoff]
+        st.markdown("</div>", unsafe_allow_html=True)
 
-        # Interactive Plotly histogram
-        fig = px.histogram(
-            df2,
-            x="EV %",
-            nbins=15,
-            title="EV% Distribution",
-            template="plotly_dark" if dark_mode else "plotly_white"
-        )
-        st.plotly_chart(fig, use_container_width=True)
+        if not df.empty:
+            col1, col2 = st.columns(2)
 
-        # Top Picks as cards
-        st.markdown("<div class='section'><h3>🔥 Top Picks</h3></div>", unsafe_allow_html=True)
-        for _, r in df2.sort_values("EV %", ascending=False).head(5).iterrows():
-            st.markdown(f"""
-                <div class="bet-card">
-                  <h4>{r['Matchup']}</h4>
-                  <p><strong>{r['Team']}</strong> | {r['Market']} | Odds: {r['Odds']} | EV%: {r['EV %']}</p>
-                </div>
-            """, unsafe_allow_html=True)
+            with col1:
+                st.markdown("<div class='section'><h3>📊 Distribution of EV%</h3>", unsafe_allow_html=True)
+                fig, ax = plt.subplots()
+                df["EV%"].hist(ax=ax, bins=15, color="#FFDF00")
+                ax.set_title("Expected Value Histogram")
+                ax.set_xlabel("EV%")
+                ax.set_ylabel("Frequency")
+                st.pyplot(fig)
+                st.markdown("</div>", unsafe_allow_html=True)
 
-        st.markdown("<div class='section'><h3>📥 Full Table</h3></div>", unsafe_allow_html=True)
-        st.dataframe(df2, use_container_width=True)
+            with col2:
+                st.markdown("<div class='section'><h3>📈 Top Picks</h3>", unsafe_allow_html=True)
+                top_bets = df.sort_values("EV%", ascending=False).head(5)
+                st.dataframe(top_bets[["Matchup", "Team", "Market", "Odds", "EV%"]], use_container_width=True)
+                st.markdown("</div>", unsafe_allow_html=True)
 
+            st.markdown("<div class='section'><h3>📥 Full Data</h3>", unsafe_allow_html=True)
+            st.dataframe(df, use_container_width=True)
+            st.download_button("Download CSV", df.to_csv(index=False), "nba_model_bets.csv")
+            st.markdown("</div>", unsafe_allow_html=True)
+        else:
+            st.warning("No valid bets passed filter logic.")
+
+# --- TAB 2: POST BETS ---
 with tab2:
     if not st.session_state.logged_in:
-        login_form()
+        login_section()
     else:
-        bets_form()
-
+        post_bets_section()
