@@ -4,6 +4,10 @@ import requests
 import pandas as pd
 import plotly.express as px
 from datetime import datetime
+import urllib3
+
+# Disable SSL warnings (for NBA data endpoint)
+urllib3.disable_warnings()
 
 # -----------------------
 # --- Page Config ------
@@ -47,7 +51,7 @@ st.markdown("""
 
   /* Banner styling */
   .banner {
-    position: absolute !important;
+    position: fixed !important;
     top: 0; left: 0;
     width: 100%; height: 50px;
     background-color: #000;
@@ -113,15 +117,13 @@ st.markdown('<div class="content-wrapper">', unsafe_allow_html=True)
 # -----------------------
 @st.cache_data(ttl=30)
 def fetch_live_scores():
-    # Fetch live NBA scores, disable SSL verification
     date = datetime.utcnow().strftime("%Y%m%d")
     url = f"https://data.nba.net/prod/v1/{date}/scoreboard.json"
     try:
         res = requests.get(url, verify=False)
         res.raise_for_status()
         return res.json().get("games", [])
-    except Exception:
-        # On any error (incl. SSL), return empty list
+    except:
         return []
 
 live_games = fetch_live_scores()
@@ -140,11 +142,12 @@ def fetch_odds():
 
 try:
     raw_odds = fetch_odds()
-except Exception:
+except:
     st.warning("⚠️ Using sample odds data")
     raw_odds = [{"home_team":"Lakers","away_team":"Warriors","bookmakers":[{"markets":[{"key":"spreads","outcomes":[{"name":"Lakers","price":-110},{"name":"Warriors","price":100}]}]}]}]
 
 # Build odds DataFrame
+
 def estimate_prob(o): return round(1/(1+10**(-o/400)),4)
 def calc_ev(p,o): imp=(100/(100+o)) if o>0 else (abs(o)/(100+abs(o))); ev=p*(o if o>0 else 100)-(1-p)*100; return round(ev,2)
 
@@ -159,9 +162,16 @@ for g in raw_odds:
             for o in mk.get("outcomes",[]):
                 price = o.get("price")
                 if price is None: continue
-                ev = calc_ev(estimate_prob(price), price)
-                rows.append({"Date": today, "Matchup": matchup, "Team": o.get("name"), "Market": mk.get("key"), "Odds": price, "EV%": ev})
-df = pd.DataFrame(rows)
+                rows.append({
+                    "Date": today,
+                    "Matchup": matchup,
+                    "Team": o.get("name"),
+                    "Market": mk.get("key"),
+                    "Odds": price,
+                    "EV%": calc_ev(estimate_prob(price), price)
+                })
+
+odds_df = pd.DataFrame(rows)
 
 # Session state
 if "logged_in" not in st.session_state: st.session_state.logged_in=False
@@ -176,34 +186,47 @@ if page == "Dashboard":
     # Live Scores Section
     st.markdown("<div class='section'><h3>🏀 Live Game Scores</h3></div>", unsafe_allow_html=True)
     if live_games:
-        for game in live_games:
-            v = game["vTeam"]["triCode"]
-            h = game["hTeam"]["triCode"]
-            vs = game["vTeam"].get("score", "")
-            hs = game["hTeam"].get("score", "")
-            status = game.get("statusNum")
-            if status == 1:
-                time = game.get("startTimeUTC", "")
-                st.markdown(f"**{v}** vs **{h}** at {time}")
+        records = []
+        for g in live_games:
+            v = g["vTeam"]["triCode"]
+            vs = g["vTeam"].get("score", "-")
+            h = g["hTeam"]["triCode"]
+            hs = g["hTeam"].get("score", "-")
+            stat_num = g.get("statusNum", 0)
+            if stat_num == 1:
+                t = g.get("startTimeUTC", "")[11:16] + " UTC"
+                status = f"Scheduled {t}"
+            elif stat_num == 2:
+                period = g.get("period", {}).get("current", "")
+                clock = g.get("clock", "")
+                status = f"P{period} {clock}"
             else:
-                period = game.get("period", {}).get("current", "")
-                clock = game.get("clock", "")
-                st.markdown(f"**{v}** {vs} - {hs} **{h}**   P{period} {clock}")
+                status = "Final"
+            records.append({
+                "Visitor": v,
+                "Visitor Score": vs,
+                "Home": h,
+                "Home Score": hs,
+                "Status": status
+            })
+        scores_df = pd.DataFrame(records)
+        st.table(scores_df)
     else:
-        st.markdown("No live games at the moment.")
+        st.info("No live games at the moment.")
 
+    # Odds & EV Section
     st.markdown("<div class='section'><h3>📊 Odds & EV Distribution</h3></div>", unsafe_allow_html=True)
-    if df.empty:
+    if odds_df.empty:
         st.info("No betting data available.")
     else:
-        ev_cut = st.slider("Minimum EV%", -100, 100, -100)
-        df_f = df[df["EV%"] >= ev_cut]
+        cutoff = st.slider("Minimum EV%", -100, 100, -100)
+        filt = odds_df[odds_df["EV%"] >= cutoff]
         st.plotly_chart(
-            px.histogram(df_f, x="EV%", nbins=20, color_discrete_sequence=["#00ff88"]),
+            px.histogram(filt, x="EV%", nbins=20, color_discrete_sequence=["#00ff88"]),
             use_container_width=True
         )
         st.markdown("<div class='section'><h3>🔥 Top Picks</h3></div>", unsafe_allow_html=True)
-        for _, r in df_f.sort_values("EV%", ascending=False).head(5).iterrows():
+        for _, r in filt.sort_values("EV%", ascending=False).head(5).iterrows():
             st.markdown(
                 f"<div style='background:#111; padding:8px; margin:4px 0; border-left:4px solid #00ff88; color:#e0e0e0;'>{r['Matchup']} — {r['Odds']} ({r['EV%']}%)</div>",
                 unsafe_allow_html=True
