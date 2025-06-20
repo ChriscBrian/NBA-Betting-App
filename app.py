@@ -12,8 +12,7 @@ st.set_page_config(page_title="ParlayPlay", layout="wide")
 
 dark_mode = True  # force dark theme
 
-# -----------------------']]
-
+# -----------------------
 # --- Global CSS -------
 # -----------------------
 st.markdown("""
@@ -125,7 +124,7 @@ def fetch_live_scores():
         # On any error (incl. SSL), return empty list
         return []
 
-live_games = fetch_live_scores()()
+live_games = fetch_live_scores()
 
 # -----------------------
 # --- Odds Fetching -----
@@ -233,3 +232,4 @@ else:
 
 # Close wrapper
 st.markdown('</div>', unsafe_allow_html=True)
+
