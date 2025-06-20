@@ -12,7 +12,8 @@ st.set_page_config(page_title="ParlayPlay", layout="wide")
 
 dark_mode = True  # force dark theme
 
-# -----------------------
+# -----------------------']]
+
 # --- Global CSS -------
 # -----------------------
 st.markdown("""
@@ -113,20 +114,18 @@ st.markdown('<div class="content-wrapper">', unsafe_allow_html=True)
 # -----------------------
 @st.cache_data(ttl=30)
 def fetch_live_scores():
-    # Fetch live NBA scores, disable SSL verification if needed
+    # Fetch live NBA scores, disable SSL verification
     date = datetime.utcnow().strftime("%Y%m%d")
     url = f"https://data.nba.net/prod/v1/{date}/scoreboard.json"
     try:
-        # disable SSL verification to avoid SSLError in some environments
         res = requests.get(url, verify=False)
         res.raise_for_status()
         return res.json().get("games", [])
     except Exception:
-        return []("games", [])
-    except:
+        # On any error (incl. SSL), return empty list
         return []
 
-live_games = fetch_live_scores()
+live_games = fetch_live_scores()()
 
 # -----------------------
 # --- Odds Fetching -----
