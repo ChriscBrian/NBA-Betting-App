@@ -117,14 +117,22 @@ st.markdown('<div class="content-wrapper">', unsafe_allow_html=True)
 # -----------------------
 @st.cache_data(ttl=30)
 def fetch_live_scores():
-    date = datetime.utcnow().strftime("%Y%m%d")
-    url = f"https://data.nba.net/prod/v1/{date}/scoreboard.json"
-    try:
-        res = requests.get(url, verify=False)
-        res.raise_for_status()
-        return res.json().get("games", [])
-    except:
-        return []
+    # Try local date first, then generic endpoint
+    date_local = datetime.now().strftime("%Y%m%d")
+    urls = [
+        f"https://data.nba.net/prod/v1/{date_local}/scoreboard.json",
+        "https://data.nba.net/prod/v1/scoreboard.json"
+    ]
+    for url in urls:
+        try:
+            res = requests.get(url, verify=False)
+            res.raise_for_status()
+            games = res.json().get("games", [])
+            if games:
+                return games
+        except:
+            continue
+    return []
 
 live_games = fetch_live_scores()
 
@@ -255,4 +263,3 @@ else:
 
 # Close wrapper
 st.markdown('</div>', unsafe_allow_html=True)
-
