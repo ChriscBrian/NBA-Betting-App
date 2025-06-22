@@ -1,265 +1,202 @@
-import os
-import streamlit as st
 import requests
 import pandas as pd
-import plotly.express as px
+import streamlit as st
+import matplotlib.pyplot as plt
+import altair as alt
 from datetime import datetime
-import urllib3
+import os
 
-# Disable SSL warnings (for NBA data endpoint)
-urllib3.disable_warnings()
+API_KEY = "3d4eabb1db321b1add71a25189a77697"  # Replace with your actual API key
+st.set_page_config(page_title="NBA Betting Insights", layout="wide")
 
-# -----------------------
-# --- Page Config ------
-# -----------------------
-st.set_page_config(page_title="ParlayPlay", layout="wide")
-
-dark_mode = True  # force dark theme
-
-# -----------------------
-# --- Global CSS -------
-# -----------------------
+# --- STYLES ---
 st.markdown("""
 <style>
-  /* Hide default menu/header/footer */
-  #MainMenu, header, footer {visibility: hidden !important;}
-
-  /* Sidebar styling */
-  [data-testid="stSidebar"] {
-    background-color: #000 !important;
-    padding-top: 2rem;
-  }
-  /* Sidebar title (markdown) */
-  [data-testid="stSidebar"] .css-1d391kg .css-1v3fvcr {
-    font-size: 1.75rem !important;
-    font-weight: 700 !important;
-    color: #00ff88 !important;
-    text-align: center !important;
-    margin-bottom: 1rem;
-  }
-  /* Sidebar nav labels */
-  [data-testid="stSidebar"] input[type="radio"] + label {
-    color: #00ff88 !important;
-    font-size: 1.25rem !important;
-    text-align: center !important;
-    padding: 0.75rem 1rem !important;
-    display: block !important;
-  }
-  [data-testid="stSidebar"] input[type="radio"] + label:hover {
-    background-color: #003300 !important;
-  }
-
-  /* Banner styling */
-  .banner {
-    position: fixed !important;
-    top: 0; left: 0;
-    width: 100%; height: 50px;
-    background-color: #000;
-    display: flex; align-items: center;
-    overflow: hidden; z-index: 9999;
-  }
-  .banner img {
-    height: 40px; margin: 0 8px;
-    animation: scroll 20s linear infinite;
-  }
-  @keyframes scroll {
-    0% { transform: translateX(100%); }
-    100% { transform: translateX(-100%); }
-  }
-
-  /* Main content offset */
-  .content-wrapper {
-    padding-top: 60px;
-    padding-left: 16px;
-    padding-right: 16px;
-  }
-
-  /* Section styling */
-  .section {
-    background: linear-gradient(135deg, #001f3f, #003366);
-    border-radius: 16px;
-    padding: 24px;
-    margin: 16px 0;
+body {
+    background-color: #f4f6fa;
+}
+.section {
+    background: #001f3f;
+    border-radius: 20px;
+    padding: 20px;
+    margin-bottom: 25px;
+    color: white;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+}
+.section h3 {
     color: #FFDF00;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
-  }
+}
+.card {
+    background: linear-gradient(135deg, #00274d, #003366);
+    border: 1px solid #FFDF00;
+    border-radius: 15px;
+    padding: 20px;
+    margin-bottom: 20px;
+    color: white;
+}
+.trophy {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+}
 </style>
 """, unsafe_allow_html=True)
 
-# -----------------------
-# --- Sidebar Nav -------
-# -----------------------
-st.sidebar.markdown("# ParlayPlay")
-page = st.sidebar.radio(
-    "",
-    ["Dashboard", "Post Bets"],
-    index=0,
-    format_func=lambda x: f"🎲 {x}" if x == "Dashboard" else f"📝 {x}"
-)
+# --- TROPHY IMAGE ---
+st.markdown("""
+<div class="trophy">
+    <img src="https://cdn-icons-png.flaticon.com/512/1821/1821061.png" height="60">
+</div>
+""", unsafe_allow_html=True)
 
-# -----------------------
-# --- Top Banner --------
-# -----------------------
-NBA_LOGOS = [
-    "https://loodibee.com/wp-content/uploads/nba-atlanta-hawks-logo.png",
-    "https://loodibee.com/wp-content/uploads/nba-boston-celtics-logo.png",
-    # ... add other logos ...
-    "https://loodibee.com/wp-content/uploads/nba-washington-wizards-logo.png"
-]
-logo_html = '<div class="banner">' + ''.join(f'<img src="{url}" />' for url in NBA_LOGOS) + '</div>'
-st.markdown(logo_html, unsafe_allow_html=True)
+# --- BANNER ---
+st.markdown("""
+<div style="overflow:hidden; white-space:nowrap; background-color:rgba(255,255,255,0.1); padding:10px 0;">
+    <marquee behavior="scroll" direction="left" scrollamount="8">
+        <img src="https://loodibee.com/wp-content/uploads/nba-logo.png" height="40">
+        <img src="https://loodibee.com/wp-content/uploads/nba-indiana-pacers-logo.png" height="40">
+        <img src="https://loodibee.com/wp-content/uploads/nba-oklahoma-city-thunder-logo.png" height="40">
+        <img src="https://loodibee.com/wp-content/uploads/nba-boston-celtics-logo.png" height="40">
+        <img src="https://loodibee.com/wp-content/uploads/nba-los-angeles-lakers-logo.png" height="40">
+        <img src="https://loodibee.com/wp-content/uploads/nba-miami-heat-logo.png" height="40">
+        <img src="https://loodibee.com/wp-content/uploads/nba-golden-state-warriors-logo.png" height="40">
+        <img src="https://loodibee.com/wp-content/uploads/nba-chicago-bulls-logo.png" height="40">
+    </marquee>
+</div>
+""", unsafe_allow_html=True)
 
-# Wrap content
-st.markdown('<div class="content-wrapper">', unsafe_allow_html=True)
+# --- LINKS TO BOOKMAKERS ---
+st.markdown("""
+<div style="text-align:center; margin-top: 10px;">
+    <a href="https://www.fanduel.com" target="_blank">🏀 FanDuel</a> |
+    <a href="https://www.draftkings.com" target="_blank">🏈 DraftKings</a> |
+    <a href="https://sports.betmgm.com" target="_blank">⚾ BetMGM</a> |
+    <a href="https://www.betrivers.com" target="_blank">🏐 BetRivers</a> |
+    <a href="https://www.betonline.ag" target="_blank">🏒 BetOnline.ag</a>
+</div>
+""", unsafe_allow_html=True)
 
-# -----------------------
-# --- Live Scores -------
-# -----------------------
-@st.cache_data(ttl=30)
-def fetch_live_scores():
-    # Try local date first, then generic endpoint
-    date_local = datetime.now().strftime("%Y%m%d")
-    urls = [
-        f"https://data.nba.net/prod/v1/{date_local}/scoreboard.json",
-        "https://data.nba.net/prod/v1/scoreboard.json"
-    ]
-    for url in urls:
-        try:
-            res = requests.get(url, verify=False)
-            res.raise_for_status()
-            games = res.json().get("games", [])
-            if games:
-                return games
-        except:
-            continue
-    return []
+st.markdown("<h1 style='color:#1E88E5;'>NBA Betting Insights</h1>", unsafe_allow_html=True)
 
-live_games = fetch_live_scores()
-
-# -----------------------
-# --- Odds Fetching -----
-# -----------------------
-API_KEY = os.getenv("ODDS_API_KEY", "3d4eabb1db321b1add71a25189a77697")
 @st.cache_data(show_spinner=False)
 def fetch_odds():
     url = "https://api.the-odds-api.com/v4/sports/basketball_nba/odds"
-    params = {"apiKey": API_KEY, "regions": "us", "markets": "spreads,totals,h2h", "oddsFormat": "american"}
-    resp = requests.get(url, params=params)
-    resp.raise_for_status()
-    return resp.json()
+    params = {
+        "apiKey": API_KEY,
+        "regions": "us",
+        "markets": "spreads,totals,h2h",
+        "oddsFormat": "american"
+    }
+    try:
+        response = requests.get(url, params=params)
+        response.raise_for_status()
+        return response.json()
+    except requests.exceptions.RequestException as e:
+        st.error(f"Failed to fetch odds: {e}")
+        return []
 
-try:
-    raw_odds = fetch_odds()
-except:
-    st.warning("⚠️ Using sample odds data")
-    raw_odds = [{"home_team":"Lakers","away_team":"Warriors","bookmakers":[{"markets":[{"key":"spreads","outcomes":[{"name":"Lakers","price":-110},{"name":"Warriors","price":100}]}]}]}]
+def estimate_model_probability(odds):
+    try:
+        return round(1 / (1 + 10 ** (-odds / 400)), 4)
+    except:
+        return 0.5
 
-# Build odds DataFrame
+def calc_ev(prob_model, odds):
+    implied_prob = 100 / (100 + odds) if odds > 0 else abs(odds) / (100 + abs(odds))
+    ev = (prob_model * (odds if odds > 0 else 100)) - ((1 - prob_model) * 100)
+    return round(ev, 2), round(prob_model * 100, 1), round(implied_prob * 100, 1)
 
-def estimate_prob(o): return round(1/(1+10**(-o/400)),4)
-def calc_ev(p,o): imp=(100/(100+o)) if o>0 else (abs(o)/(100+abs(o))); ev=p*(o if o>0 else 100)-(1-p)*100; return round(ev,2)
-
-rows=[]
 today = datetime.today().strftime("%Y-%m-%d")
-for g in raw_odds:
-    home, away = g.get("home_team"), g.get("away_team")
-    if not home or not away: continue
+odds_data = fetch_odds()
+
+# === FILTERS ===
+st.markdown("<div class='section'>", unsafe_allow_html=True)
+st.markdown("### 🎯 Filters")
+ev_threshold = st.slider("Minimum Expected Value (EV%)", -100, 100, 0)
+team_filter = st.selectbox("Filter by Team (Optional)", options=["All Teams"] + sorted({t for g in odds_data for t in g.get("teams", [])}))
+market_filter = st.radio("Filter by Market", options=["All", "h2h", "spreads", "totals"], horizontal=True)
+st.markdown("</div>", unsafe_allow_html=True)
+
+# === DATA PROCESSING ===
+rows = []
+for game in odds_data:
+    home = game.get("home_team")
+    teams = game.get("teams", [])
+    if not teams or home not in teams or len(teams) != 2:
+        continue
+    away = [t for t in teams if t != home][0]
+    if team_filter != "All Teams" and team_filter not in (home, away):
+        continue
     matchup = f"{away} @ {home}"
-    for b in g.get("bookmakers",[]):
-        for mk in b.get("markets",[]):
-            for o in mk.get("outcomes",[]):
-                price = o.get("price")
-                if price is None: continue
-                rows.append({
-                    "Date": today,
-                    "Matchup": matchup,
-                    "Team": o.get("name"),
-                    "Market": mk.get("key"),
-                    "Odds": price,
-                    "EV%": calc_ev(estimate_prob(price), price)
-                })
+    for bookmaker in game.get("bookmakers", []):
+        for market in bookmaker.get("markets", []):
+            if market_filter != "All" and market["key"] != market_filter:
+                continue
+            for outcome in market.get("outcomes", []):
+                label = outcome.get("name")
+                odds_val = outcome.get("price")
+                model_prob = estimate_model_probability(odds_val)
+                ev, model_pct, implied_pct = calc_ev(model_prob, odds_val)
+                if ev >= ev_threshold:
+                    rows.append({
+                        "Date": today,
+                        "Matchup": matchup,
+                        "Market": market["key"],
+                        "Bet": label,
+                        "Odds": odds_val,
+                        "Model Win%": model_pct,
+                        "Implied%": implied_pct,
+                        "EV%": ev,
+                        "Bookmaker": bookmaker["title"]
+                    })
 
-odds_df = pd.DataFrame(rows)
+bets_df = pd.DataFrame(rows)
 
-# Session state
-if "logged_in" not in st.session_state: st.session_state.logged_in=False
-if "user_bets" not in st.session_state: st.session_state.user_bets=[]
-
-# -----------------------
-# --- Dashboard View ----
-# -----------------------
-if page == "Dashboard":
-    st.title("Dashboard")
-
-    # Live Scores Section
-    st.markdown("<div class='section'><h3>🏀 Live Game Scores</h3></div>", unsafe_allow_html=True)
-    if live_games:
-        records = []
-        for g in live_games:
-            v = g["vTeam"]["triCode"]
-            vs = g["vTeam"].get("score", "-")
-            h = g["hTeam"]["triCode"]
-            hs = g["hTeam"].get("score", "-")
-            stat_num = g.get("statusNum", 0)
-            if stat_num == 1:
-                t = g.get("startTimeUTC", "")[11:16] + " UTC"
-                status = f"Scheduled {t}"
-            elif stat_num == 2:
-                period = g.get("period", {}).get("current", "")
-                clock = g.get("clock", "")
-                status = f"P{period} {clock}"
-            else:
-                status = "Final"
-            records.append({
-                "Visitor": v,
-                "Visitor Score": vs,
-                "Home": h,
-                "Home Score": hs,
-                "Status": status
-            })
-        scores_df = pd.DataFrame(records)
-        st.table(scores_df)
-    else:
-        st.info("No live games at the moment.")
-
-    # Odds & EV Section
-    st.markdown("<div class='section'><h3>📊 Odds & EV Distribution</h3></div>", unsafe_allow_html=True)
-    if odds_df.empty:
-        st.info("No betting data available.")
-    else:
-        cutoff = st.slider("Minimum EV%", -100, 100, -100)
-        filt = odds_df[odds_df["EV%"] >= cutoff]
-        st.plotly_chart(
-            px.histogram(filt, x="EV%", nbins=20, color_discrete_sequence=["#00ff88"]),
-            use_container_width=True
-        )
-        st.markdown("<div class='section'><h3>🔥 Top Picks</h3></div>", unsafe_allow_html=True)
-        for _, r in filt.sort_values("EV%", ascending=False).head(5).iterrows():
-            st.markdown(
-                f"<div style='background:#111; padding:8px; margin:4px 0; border-left:4px solid #00ff88; color:#e0e0e0;'>{r['Matchup']} — {r['Odds']} ({r['EV%']}%)</div>",
-                unsafe_allow_html=True
-            )
-
-# -----------------------
-# --- Post Bets View ----
-# -----------------------
+# === HISTORY ===
+history_path = "daily_history.csv"
+if os.path.exists(history_path):
+    history_df = pd.read_csv(history_path)
 else:
-    st.title("Post Bets")
-    if not st.session_state.logged_in:
-        user = st.text_input("Username")
-        pwd = st.text_input("Password", type="password")
-        if st.button("Login"):
-            st.session_state.logged_in = True
-            st.success(f"Welcome, {user}!")
-    else:
-        bet = st.text_area("Your Bet")
-        if st.button("Submit Bet"):
-            st.session_state.user_bets.append(bet)
-            st.success("Bet posted!")
-        if st.session_state.user_bets:
-            st.subheader("Your Bets")
-            for b in st.session_state.user_bets:
-                st.markdown(f"- {b}")
+    history_df = pd.DataFrame()
+if not bets_df.empty:
+    history_df = pd.concat([history_df, bets_df], ignore_index=True)
+    history_df.to_csv(history_path, index=False)
 
-# Close wrapper
-st.markdown('</div>', unsafe_allow_html=True)
+# === TOP BET CARDS ===
+if not bets_df.empty:
+    st.markdown("<div class='section'>", unsafe_allow_html=True)
+    st.markdown("### 🔥 Today's Best Bets")
+    top3 = bets_df.sort_values("EV%", ascending=False).head(3)
+    for _, row in top3.iterrows():
+        st.markdown(f"""
+        <div class='card'>
+            <h4>{row['Matchup']}</h4>
+            <p><strong>Bet:</strong> {row['Bet']} ({row['Market']})</p>
+            <p><strong>Odds:</strong> {row['Odds']} | <strong>EV%:</strong> {row['EV%']} | <strong>Model Win%:</strong> {row['Model Win%']}% | <strong>Implied%:</strong> {row['Implied%']}%</p>
+            <p><em>Bookmaker: {row['Bookmaker']}</em></p>
+        </div>
+        """, unsafe_allow_html=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# === FULL TABLE ===
+if not bets_df.empty:
+    st.markdown("<div class='section'>", unsafe_allow_html=True)
+    st.markdown("### 📋 All Bets")
+    st.dataframe(bets_df, use_container_width=True)
+    st.download_button("📥 Download Today's Bets", bets_df.to_csv(index=False), f"bets_{today}.csv")
+    st.markdown("</div>", unsafe_allow_html=True)
+
+# === CHARTS ===
+if not bets_df.empty:
+    st.markdown("<div class='section'>", unsafe_allow_html=True)
+    st.markdown("### 📈 EV Distribution")
+    chart = alt.Chart(bets_df).mark_bar().encode(
+        alt.X("EV%:Q", bin=alt.Bin(maxbins=20)),
+        y='count():Q',
+        tooltip=["EV%"]
+    ).properties(width=600, height=300).interactive()
+    st.altair_chart(chart, use_container_width=True)
+    st.markdown("</div>", unsafe_allow_html=True)
+
+else:
+    st.info("No bets matched the filters or EV threshold.")
