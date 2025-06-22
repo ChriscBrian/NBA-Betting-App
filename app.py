@@ -1,108 +1,101 @@
-import streamlit as st
-import pandas as pd
+# app.py
+
 import requests
+import pandas as pd
+import streamlit as st
 import matplotlib.pyplot as plt
 import altair as alt
 from datetime import datetime
 import os
 
-# --- CONFIG ---
-API_KEY = "3d4eabb1db321b1add71a25189a77697"  # Replace this
+API_KEY = "3d4eabb1db321b1add71a25189a77697"  # Replace with your actual API key
+
 st.set_page_config(page_title="NBA Betting Insights", layout="wide")
 
-# --- STYLES ---
+# --- CSS ---
 st.markdown("""
-<style>
-body, .stApp {
-    background-color: black;
-    color: #39FF14;
-}
-h1, h2, h3, h4, h5 {
-    color: #39FF14;
-}
-.section {
-    background-color: #000000;
-    border-radius: 10px;
-    padding: 20px;
-    margin-bottom: 20px;
-    color: #39FF14;
-}
-.card {
-    background-color: #111111;
-    border: 1px solid #39FF14;
-    border-radius: 12px;
-    padding: 20px;
-    margin-bottom: 10px;
-}
-a {
-    color: #1E90FF;
-}
-</style>
+    <style>
+    body {
+        background-color: black;
+        color: #39FF14;
+    }
+    .section {
+        background: #111;
+        border-radius: 15px;
+        padding: 20px;
+        margin-bottom: 25px;
+        color: #39FF14;
+        box-shadow: 0 0 10px #39FF14;
+    }
+    .section h3 {
+        color: #39FF14;
+    }
+    .card {
+        background: linear-gradient(135deg, #0d0d0d, #1a1a1a);
+        border: 2px solid #39FF14;
+        border-radius: 15px;
+        padding: 20px;
+        margin-bottom: 20px;
+        color: #39FF14;
+    }
+    .marquee {
+        white-space: nowrap;
+        overflow-x: auto;
+        padding: 10px 0;
+        background-color: black;
+    }
+    .marquee img {
+        height: 45px;
+        display: inline-block;
+        margin-right: 12px;
+    }
+    </style>
 """, unsafe_allow_html=True)
 
-# --- HEADER + MARQUEE BANNER ---
-st.markdown(f"""
-<div style="display:flex; justify-content:space-between; align-items:center;">
-    <div style="overflow:hidden; white-space:nowrap; width:85%;">
-        <marquee scrollamount="7">
-            {''.join([f'<img src="https://loodibee.com/wp-content/uploads/nba-{team}-logo.png" height="40" style="margin-right:15px;">' for team in [
-                'atlanta-hawks', 'boston-celtics', 'brooklyn-nets', 'charlotte-hornets',
-                'chicago-bulls', 'cleveland-cavaliers', 'dallas-mavericks', 'denver-nuggets',
-                'detroit-pistons', 'golden-state-warriors', 'houston-rockets', 'indiana-pacers',
-                'los-angeles-clippers', 'los-angeles-lakers', 'memphis-grizzlies', 'miami-heat',
-                'milwaukee-bucks', 'minnesota-timberwolves', 'new-orleans-pelicans', 'new-york-knicks',
-                'oklahoma-city-thunder', 'orlando-magic', 'philadelphia-76ers', 'phoenix-suns',
-                'portland-trail-blazers', 'sacramento-kings', 'san-antonio-spurs', 'toronto-raptors',
-                'utah-jazz', 'washington-wizards'
-            ]])}
-        </marquee>
+# --- Banner ---
+team_slugs = [
+    'atlanta-hawks', 'boston-celtics', 'brooklyn-nets', 'charlotte-hornets', 'chicago-bulls',
+    'cleveland-cavaliers', 'dallas-mavericks', 'denver-nuggets', 'detroit-pistons',
+    'golden-state-warriors', 'houston-rockets', 'indiana-pacers', 'los-angeles-clippers',
+    'los-angeles-lakers', 'memphis-grizzlies', 'miami-heat', 'milwaukee-bucks',
+    'minnesota-timberwolves', 'new-orleans-pelicans', 'new-york-knicks',
+    'oklahoma-city-thunder', 'orlando-magic', 'philadelphia-76ers', 'phoenix-suns',
+    'portland-trail-blazers', 'sacramento-kings', 'san-antonio-spurs',
+    'toronto-raptors', 'utah-jazz', 'washington-wizards'
+]
+
+banner_html = f"""
+<div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+    <div style="width: 85%;">
+        <div class="marquee">
+            {''.join([f'<img src="https://loodibee.com/wp-content/uploads/nba-{slug}-logo.png">' for slug in team_slugs])}
+        </div>
     </div>
-    <div style="width:15%; text-align:right;">
-        <img src="parlayplaytrophy.jpg" height="60">
+    <div style="width: 15%; text-align: right;">
+        <img src="parlayplaytrophy.jpg" alt="Trophy" height="80">
     </div>
 </div>
-""", unsafe_allow_html=True)
+"""
+st.markdown(banner_html, unsafe_allow_html=True)
 
-st.markdown("<h1>NBA Betting Insights</h1>", unsafe_allow_html=True)
+st.markdown("<h1 style='color:#39FF14;'>NBA Betting Insights</h1>", unsafe_allow_html=True)
 
-# --- Sportsbook Links ---
-st.markdown("""
-<p>
-🔗 <a href="https://www.fanduel.com" target="_blank">FanDuel</a> |
-<a href="https://www.draftkings.com" target="_blank">DraftKings</a> |
-<a href="https://www.betmgm.com" target="_blank">BetMGM</a> |
-<a href="https://www.betrivers.com" target="_blank">BetRivers</a> |
-<a href="https://www.betonline.ag" target="_blank">BetOnline.ag</a>
-</p>
-""", unsafe_allow_html=True)
-
-# --- API FUNCTIONS ---
-@st.cache_data
+# --- Functions ---
+@st.cache_data(show_spinner=False)
 def fetch_odds():
     url = "https://api.the-odds-api.com/v4/sports/basketball_nba/odds"
     params = {
         "apiKey": API_KEY,
         "regions": "us",
-        "markets": "spreads,totals,h2h,player_points",
+        "markets": "spreads,totals,h2h,player_points,player_assists,player_rebounds",
         "oddsFormat": "american"
     }
-    response = requests.get(url, params=params)
-    if response.status_code == 200:
+    try:
+        response = requests.get(url, params=params)
+        response.raise_for_status()
         return response.json()
-    else:
-        return []
-
-@st.cache_data
-def fetch_live_scores():
-    url = "https://api.the-odds-api.com/v4/sports/basketball_nba/scores"
-    params = {
-        "apiKey": API_KEY,
-        "daysFrom": 1
-    }
-    response = requests.get(url, params=params)
-    if response.status_code == 200:
-        return response.json()
-    else:
+    except requests.exceptions.RequestException as e:
+        st.error(f"Failed to fetch odds: {e}")
         return []
 
 def estimate_model_probability(odds):
@@ -116,20 +109,19 @@ def calc_ev(prob_model, odds):
     ev = (prob_model * (odds if odds > 0 else 100)) - ((1 - prob_model) * 100)
     return round(ev, 2), round(prob_model * 100, 1), round(implied_prob * 100, 1)
 
-# --- DATA FETCH ---
+# --- Fetch Data ---
 odds_data = fetch_odds()
 today = datetime.today().strftime("%Y-%m-%d")
 
-# --- FILTERS ---
+# --- Filters ---
 st.markdown("<div class='section'>", unsafe_allow_html=True)
-st.subheader("🎯 Filters")
+st.markdown("### 🎯 Filters")
 ev_threshold = st.slider("Minimum Expected Value (EV%)", -100, 100, 0)
-teams_available = sorted({t for g in odds_data for t in g.get("teams", [])})
-team_filter = st.selectbox("Filter by Team (Optional)", ["All Teams"] + teams_available)
-market_filter = st.radio("Filter by Market", options=["All", "h2h", "spreads", "totals", "player_points"], horizontal=True)
+team_filter = st.selectbox("Filter by Team (Optional)", options=["All Teams"] + sorted({t for g in odds_data for t in g.get("teams", [])}))
+market_filter = st.radio("Filter by Market", options=["All", "h2h", "spreads", "totals", "player_points", "player_rebounds", "player_assists"], horizontal=True)
 st.markdown("</div>", unsafe_allow_html=True)
 
-# --- PROCESS DATA ---
+# --- Process Bets ---
 rows = []
 for game in odds_data:
     home = game.get("home_team")
@@ -164,34 +156,43 @@ for game in odds_data:
 
 bets_df = pd.DataFrame(rows)
 
-# --- TOP BETS ---
+# --- Save History ---
+history_path = "daily_history.csv"
+if os.path.exists(history_path):
+    history_df = pd.read_csv(history_path)
+else:
+    history_df = pd.DataFrame()
+if not bets_df.empty:
+    history_df = pd.concat([history_df, bets_df], ignore_index=True)
+    history_df.to_csv(history_path, index=False)
+
+# --- Best Bets ---
 if not bets_df.empty:
     st.markdown("<div class='section'>", unsafe_allow_html=True)
-    st.subheader("🔥 Top Bets Today")
-    top_bets = bets_df.sort_values("EV%", ascending=False).head(3)
-    for _, row in top_bets.iterrows():
+    st.markdown("### 🔥 Today's Best Bets")
+    top3 = bets_df.sort_values("EV%", ascending=False).head(3)
+    for _, row in top3.iterrows():
         st.markdown(f"""
         <div class='card'>
-            <strong>{row['Matchup']}</strong><br>
-            Bet: {row['Bet']} ({row['Market']})<br>
-            Odds: {row['Odds']} | EV%: {row['EV%']} | Model Win%: {row['Model Win%']}% | Implied%: {row['Implied%']}%<br>
-            <em>Bookmaker: {row['Bookmaker']}</em>
+            <h4>{row['Matchup']}</h4>
+            <p><strong>Bet:</strong> {row['Bet']} ({row['Market']})</p>
+            <p><strong>Odds:</strong> {row['Odds']} | <strong>EV%:</strong> {row['EV%']} | 
+            <strong>Model Win%:</strong> {row['Model Win%']}% | <strong>Implied%:</strong> {row['Implied%']}%</p>
+            <p><em>Bookmaker: {row['Bookmaker']}</em></p>
         </div>
         """, unsafe_allow_html=True)
     st.markdown("</div>", unsafe_allow_html=True)
 
-# --- DATA TABLE ---
+# --- Full Table + Chart ---
 if not bets_df.empty:
     st.markdown("<div class='section'>", unsafe_allow_html=True)
-    st.subheader("📋 All Bets")
+    st.markdown("### 📋 All Bets")
     st.dataframe(bets_df, use_container_width=True)
-    st.download_button("📥 Download Bets", bets_df.to_csv(index=False), f"bets_{today}.csv")
+    st.download_button("📥 Download Today's Bets", bets_df.to_csv(index=False), f"bets_{today}.csv")
     st.markdown("</div>", unsafe_allow_html=True)
 
-# --- CHART ---
-if not bets_df.empty:
     st.markdown("<div class='section'>", unsafe_allow_html=True)
-    st.subheader("📈 EV Distribution")
+    st.markdown("### 📈 EV Distribution")
     chart = alt.Chart(bets_df).mark_bar().encode(
         alt.X("EV%:Q", bin=alt.Bin(maxbins=20)),
         y='count():Q',
@@ -199,17 +200,5 @@ if not bets_df.empty:
     ).properties(width=600, height=300).interactive()
     st.altair_chart(chart, use_container_width=True)
     st.markdown("</div>", unsafe_allow_html=True)
-
-# --- LIVE SCORES ---
-live_scores = fetch_live_scores()
-if live_scores:
-    st.markdown("<div class='section'>", unsafe_allow_html=True)
-    st.subheader("🏀 Live Scores")
-    for game in live_scores:
-        if game["completed"]: continue
-        st.write(f"**{game['home_team']} vs {game['away_team']}** - {game['scores'][0]['name']}: {game['scores'][0]['score']} | {game['scores'][1]['name']}: {game['scores'][1]['score']}")
-    st.markdown("</div>", unsafe_allow_html=True)
-
-# --- NO BETS ---
-if bets_df.empty:
+else:
     st.info("No bets matched the filters or EV threshold.")
