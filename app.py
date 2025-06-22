@@ -6,78 +6,82 @@ import altair as alt
 from datetime import datetime
 import os
 
-API_KEY = "3d4eabb1db321b1add71a25189a77697"  # Replace with your actual API key
+API_KEY = "3d4eabb1db321b1add71a25189a77697"  # Replace with your actual key
 st.set_page_config(page_title="NBA Betting Insights", layout="wide")
 
 # --- STYLES ---
 st.markdown("""
 <style>
 body {
-    background-color: #f4f6fa;
+    background-color: #000000;
+    color: #39FF14;
+}
+[data-testid="stAppViewContainer"] {
+    background-color: #000000;
+}
+h1, h2, h3, h4, h5, h6, p, div {
+    color: #39FF14;
 }
 .section {
-    background: #001f3f;
+    background: #111;
     border-radius: 20px;
     padding: 20px;
     margin-bottom: 25px;
-    color: white;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+    box-shadow: 0 4px 12px rgba(0,255,0,0.2);
 }
 .section h3 {
-    color: #FFDF00;
+    color: #39FF14;
 }
 .card {
-    background: linear-gradient(135deg, #00274d, #003366);
-    border: 1px solid #FFDF00;
+    background: linear-gradient(135deg, #013220, #0B6623);
+    border: 2px solid #39FF14;
     border-radius: 15px;
     padding: 20px;
     margin-bottom: 20px;
-    color: white;
 }
-.trophy {
+#trophy {
     position: absolute;
-    top: 10px;
-    right: 10px;
+    top: 20px;
+    right: 40px;
+    z-index: 999;
 }
 </style>
 """, unsafe_allow_html=True)
 
 # --- TROPHY IMAGE ---
-st.markdown("""
-<div class="trophy">
-    <img src="https://cdn-icons-png.flaticon.com/512/1821/1821061.png" height="60">
+st.markdown(f"""
+<div id="trophy">
+    <img src="https://nbsater.streamlit.app/files/trophy.jpg" width="100">
 </div>
 """, unsafe_allow_html=True)
 
-# --- BANNER ---
+# --- NBA BANNER WITH 30 TEAM LOGOS ---
+nba_logos = [
+    "atlanta-hawks", "boston-celtics", "brooklyn-nets", "charlotte-hornets",
+    "chicago-bulls", "cleveland-cavaliers", "dallas-mavericks", "denver-nuggets",
+    "detroit-pistons", "golden-state-warriors", "houston-rockets", "indiana-pacers",
+    "la-clippers", "los-angeles-lakers", "memphis-grizzlies", "miami-heat",
+    "milwaukee-bucks", "minnesota-timberwolves", "new-orleans-pelicans", "new-york-knicks",
+    "oklahoma-city-thunder", "orlando-magic", "philadelphia-76ers", "phoenix-suns",
+    "portland-trail-blazers", "sacramento-kings", "san-antonio-spurs", "toronto-raptors",
+    "utah-jazz", "washington-wizards"
+]
 st.markdown("""
-<div style="overflow:hidden; white-space:nowrap; background-color:rgba(255,255,255,0.1); padding:10px 0;">
+<div style="overflow:hidden; white-space:nowrap; background-color:black; padding:10px 0;">
     <marquee behavior="scroll" direction="left" scrollamount="8">
-        <img src="https://loodibee.com/wp-content/uploads/nba-logo.png" height="40">
-        <img src="https://loodibee.com/wp-content/uploads/nba-indiana-pacers-logo.png" height="40">
-        <img src="https://loodibee.com/wp-content/uploads/nba-oklahoma-city-thunder-logo.png" height="40">
-        <img src="https://loodibee.com/wp-content/uploads/nba-boston-celtics-logo.png" height="40">
-        <img src="https://loodibee.com/wp-content/uploads/nba-los-angeles-lakers-logo.png" height="40">
-        <img src="https://loodibee.com/wp-content/uploads/nba-miami-heat-logo.png" height="40">
-        <img src="https://loodibee.com/wp-content/uploads/nba-golden-state-warriors-logo.png" height="40">
-        <img src="https://loodibee.com/wp-content/uploads/nba-chicago-bulls-logo.png" height="40">
-    </marquee>
-</div>
 """, unsafe_allow_html=True)
 
-# --- LINKS TO BOOKMAKERS ---
-st.markdown("""
-<div style="text-align:center; margin-top: 10px;">
-    <a href="https://www.fanduel.com" target="_blank">🏀 FanDuel</a> |
-    <a href="https://www.draftkings.com" target="_blank">🏈 DraftKings</a> |
-    <a href="https://sports.betmgm.com" target="_blank">⚾ BetMGM</a> |
-    <a href="https://www.betrivers.com" target="_blank">🏐 BetRivers</a> |
-    <a href="https://www.betonline.ag" target="_blank">🏒 BetOnline.ag</a>
-</div>
-""", unsafe_allow_html=True)
+for team in nba_logos:
+    st.markdown(
+        f'<img src="https://loodibee.com/wp-content/uploads/nba-{team}-logo.png" height="40" style="margin-right:15px;">',
+        unsafe_allow_html=True
+    )
 
-st.markdown("<h1 style='color:#1E88E5;'>NBA Betting Insights</h1>", unsafe_allow_html=True)
+st.markdown("</marquee></div>", unsafe_allow_html=True)
 
+st.markdown("<h1>NBA Betting Insights</h1>", unsafe_allow_html=True)
+
+# --- ODDS FETCHING ---
 @st.cache_data(show_spinner=False)
 def fetch_odds():
     url = "https://api.the-odds-api.com/v4/sports/basketball_nba/odds"
@@ -152,32 +156,6 @@ for game in odds_data:
 
 bets_df = pd.DataFrame(rows)
 
-# === HISTORY ===
-history_path = "daily_history.csv"
-if os.path.exists(history_path):
-    history_df = pd.read_csv(history_path)
-else:
-    history_df = pd.DataFrame()
-if not bets_df.empty:
-    history_df = pd.concat([history_df, bets_df], ignore_index=True)
-    history_df.to_csv(history_path, index=False)
-
-# === TOP BET CARDS ===
-if not bets_df.empty:
-    st.markdown("<div class='section'>", unsafe_allow_html=True)
-    st.markdown("### 🔥 Today's Best Bets")
-    top3 = bets_df.sort_values("EV%", ascending=False).head(3)
-    for _, row in top3.iterrows():
-        st.markdown(f"""
-        <div class='card'>
-            <h4>{row['Matchup']}</h4>
-            <p><strong>Bet:</strong> {row['Bet']} ({row['Market']})</p>
-            <p><strong>Odds:</strong> {row['Odds']} | <strong>EV%:</strong> {row['EV%']} | <strong>Model Win%:</strong> {row['Model Win%']}% | <strong>Implied%:</strong> {row['Implied%']}%</p>
-            <p><em>Bookmaker: {row['Bookmaker']}</em></p>
-        </div>
-        """, unsafe_allow_html=True)
-    st.markdown("</div>", unsafe_allow_html=True)
-
 # === FULL TABLE ===
 if not bets_df.empty:
     st.markdown("<div class='section'>", unsafe_allow_html=True)
@@ -185,18 +163,5 @@ if not bets_df.empty:
     st.dataframe(bets_df, use_container_width=True)
     st.download_button("📥 Download Today's Bets", bets_df.to_csv(index=False), f"bets_{today}.csv")
     st.markdown("</div>", unsafe_allow_html=True)
-
-# === CHARTS ===
-if not bets_df.empty:
-    st.markdown("<div class='section'>", unsafe_allow_html=True)
-    st.markdown("### 📈 EV Distribution")
-    chart = alt.Chart(bets_df).mark_bar().encode(
-        alt.X("EV%:Q", bin=alt.Bin(maxbins=20)),
-        y='count():Q',
-        tooltip=["EV%"]
-    ).properties(width=600, height=300).interactive()
-    st.altair_chart(chart, use_container_width=True)
-    st.markdown("</div>", unsafe_allow_html=True)
-
 else:
     st.info("No bets matched the filters or EV threshold.")
